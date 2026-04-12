@@ -1,0 +1,324 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Your Name - Modern Resume</title>
+<style>
+:root {
+--bg: #0b1020;
+--card: #121a33;
+--card-2: #0f1730;
+--text: #e5e7eb;
+--muted: #9ca3af;
+--line: #26304f;
+--primary: #7c3aed; /* purple */
+--secondary: #06b6d4; /* cyan */
+--accent: #f59e0b; /* amber */
+--success: #22c55e;
+}
+
+* { box-sizing: border-box; }
+
+body {
+margin: 0;
+font-family: "Inter", "Segoe UI", Arial, sans-serif;
+color: var(--text);
+background:
+radial-gradient(1000px 500px at -10% -20%, rgba(124,58,237,0.35), transparent 60%),
+radial-gradient(900px 400px at 110% 10%, rgba(6,182,212,0.25), transparent 60%),
+var(--bg);
+padding: 28px;
+}
+
+.resume {
+max-width: 980px;
+margin: 0 auto;
+background: linear-gradient(160deg, rgba(18,26,51,0.96), rgba(15,23,48,0.96));
+border: 1px solid var(--line);
+border-radius: 18px;
+overflow: hidden;
+box-shadow: 0 20px 60px rgba(0, 0, 0, 0.35);
+}
+
+.topbar {
+height: 8px;
+background: linear-gradient(90deg, var(--primary), var(--secondary), var(--accent));
+}
+
+.content {
+display: grid;
+grid-template-columns: 300px 1fr;
+gap: 0;
+}
+
+.left {
+background: rgba(8, 12, 26, 0.45);
+border-right: 1px solid var(--line);
+padding: 28px 24px;
+}
+
+.right {
+padding: 28px 28px 20px;
+}
+
+.avatar {
+width: 88px;
+height: 88px;
+border-radius: 16px;
+background: linear-gradient(135deg, var(--primary), var(--secondary));
+display: grid;
+place-items: center;
+font-weight: 800;
+font-size: 28px;
+margin-bottom: 14px;
+color: white;
+letter-spacing: 1px;
+}
+
+h1 {
+margin: 0;
+font-size: 30px;
+line-height: 1.1;
+}
+
+.role {
+margin-top: 8px;
+display: inline-block;
+font-size: 13px;
+padding: 6px 12px;
+border-radius: 999px;
+background: rgba(124,58,237,0.2);
+color: #ddd6fe;
+border: 1px solid rgba(124,58,237,0.45);
+font-weight: 600;
+}
+
+.contact {
+margin-top: 18px;
+display: grid;
+gap: 8px;
+font-size: 13px;
+color: var(--muted);
+}
+
+.contact div {
+padding: 10px 12px;
+background: rgba(255,255,255,0.02);
+border: 1px solid var(--line);
+border-radius: 10px;
+}
+
+.section {
+margin-top: 20px;
+}
+
+.section h2 {
+margin: 0 0 12px;
+font-size: 12px;
+font-weight: 800;
+letter-spacing: 1.1px;
+text-transform: uppercase;
+color: #c4b5fd;
+display: flex;
+align-items: center;
+gap: 8px;
+}
+
+.section h2::before {
+content: "";
+width: 18px;
+height: 2px;
+background: linear-gradient(90deg, var(--primary), var(--secondary));
+border-radius: 2px;
+}
+
+p {
+margin: 0;
+line-height: 1.65;
+color: #d1d5db;
+font-size: 14px;
+}
+
+.item {
+border: 1px solid var(--line);
+background: rgba(255,255,255,0.02);
+border-radius: 12px;
+padding: 14px;
+margin-bottom: 12px;
+}
+
+.item-top {
+display: flex;
+justify-content: space-between;
+gap: 10px;
+flex-wrap: wrap;
+}
+
+.item-title {
+font-weight: 700;
+font-size: 15px;
+color: #f3f4f6;
+}
+
+.item-sub {
+margin-top: 4px;
+color: var(--muted);
+font-size: 13px;
+}
+
+.date {
+font-size: 12px;
+color: #67e8f9;
+background: rgba(6,182,212,0.15);
+border: 1px solid rgba(6,182,212,0.4);
+border-radius: 999px;
+padding: 5px 10px;
+white-space: nowrap;
+height: fit-content;
+}
+
+ul {
+margin: 10px 0 0 18px;
+padding: 0;
+}
+
+li {
+margin-bottom: 6px;
+color: #d1d5db;
+font-size: 14px;
+}
+
+.skills {
+display: flex;
+flex-wrap: wrap;
+gap: 8px;
+}
+
+.chip {
+font-size: 12px;
+font-weight: 600;
+padding: 7px 10px;
+border-radius: 999px;
+border: 1px solid transparent;
+color: white;
+background: linear-gradient(135deg, rgba(124,58,237,0.35), rgba(6,182,212,0.35));
+border-color: rgba(255,255,255,0.18);
+}
+
+.chip:nth-child(3n) { background: linear-gradient(135deg, rgba(245,158,11,0.35), rgba(124,58,237,0.35)); }
+.chip:nth-child(2n) { background: linear-gradient(135deg, rgba(34,197,94,0.30), rgba(6,182,212,0.35)); }
+
+.edu {
+display: grid;
+gap: 8px;
+font-size: 14px;
+color: #d1d5db;
+}
+
+.edu strong { color: #f9fafb; }
+
+@media (max-width: 860px) {
+.content { grid-template-columns: 1fr; }
+.left { border-right: none; border-bottom: 1px solid var(--line); }
+}
+
+@media print {
+body { background: #fff; padding: 0; }
+.resume { box-shadow: none; border-radius: 0; border: none; }
+.topbar { display: none; }
+}
+</style>
+</head>
+<body>
+<main class="resume">
+<div class="topbar"></div>
+
+<div class="content">
+<!-- LEFT PANEL -->
+<aside class="left">
+<div class="avatar">YN</div>
+<h1>Your Name</h1>
+<div class="role">Frontend Developer</div>
+
+<div class="contact">
+<div>📧 your.email@example.com</div>
+<div>📱 +66-xxx-xxx-xxx</div>
+<div>📍 Bangkok, Thailand</div>
+<div>🔗 linkedin.com/in/yourname</div>
+<div>💻 github.com/yourname</div>
+</div>
+
+<section class="section">
+<h2>Skills</h2>
+<div class="skills">
+<span class="chip">HTML5</span>
+<span class="chip">CSS3</span>
+<span class="chip">JavaScript</span>
+<span class="chip">React</span>
+<span class="chip">Tailwind</span>
+<span class="chip">Git</span>
+<span class="chip">UI/UX</span>
+<span class="chip">Problem Solving</span>
+</div>
+</section>
+</aside>
+
+<!-- RIGHT PANEL -->
+<section class="right">
+<section class="section" style="margin-top:0;">
+<h2>Profile</h2>
+<p>
+Creative and detail-oriented developer with X+ years of experience building
+modern, responsive web applications. Strong in clean UI, performance
+optimization, and cross-team collaboration.
+</p>
+</section>
+
+<section class="section">
+<h2>Experience</h2>
+
+<article class="item">
+<div class="item-top">
+<div>
+<div class="item-title">Senior Frontend Developer — Company Name</div>
+<div class="item-sub">Bangkok, Thailand</div>
+</div>
+<div class="date">Jan 2023 - Present</div>
+</div>
+<ul>
+<li>Led redesign of customer dashboard, increasing engagement by 35%.</li>
+<li>Improved Lighthouse performance score from 68 to 94.</li>
+<li>Worked with product/design teams to deliver features 20% faster.</li>
+</ul>
+</article>
+
+<article class="item">
+<div class="item-top">
+<div>
+<div class="item-title">Frontend Developer — Previous Company</div>
+<div class="item-sub">Bangkok, Thailand</div>
+</div>
+<div class="date">Jun 2020 - Dec 2022</div>
+</div>
+<ul>
+<li>Developed reusable component library used across 4 internal apps.</li>
+<li>Reduced CSS bundle size by 28% through refactoring.</li>
+<li>Mentored junior developers and improved team coding standards.</li>
+</ul>
+</article>
+</section>
+
+<section class="section">
+<h2>Education</h2>
+<div class="edu">
+<div><strong>B.Sc. in Computer Science</strong></div>
+<div>University Name, 2016 - 2020</div>
+</div>
+</section>
+</section>
+</div>
+</main>
+</body>
+</html>
+```

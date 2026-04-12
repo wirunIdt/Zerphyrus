@@ -1,0 +1,32 @@
+{% extends "base.html" %}
+{% block title %}Check-in{% endblock %}
+{% block topbar_title %}<span data-th="✅ Check-in Ticket" data-en="✅ Check-in Ticket">✅ Check-in Ticket</span>{% endblock %}
+{% block content %}
+<div style="max-width:480px;margin:0 auto">
+  {% if message %}
+  <div class="card card-p" style="margin-bottom:16px;background:{{'var(--green-lt)' if 'สำเร็จ' in message[1] or 'ยินดี' in message[1] else 'var(--red-lt)'}};border:1px solid {{'var(--green)' if 'สำเร็จ' in message[1] or 'ยินดี' in message[1] else 'var(--red)'}}">
+    <div style="font-size:.88em;font-weight:600;color:{{'var(--green)' if 'สำเร็จ' in message[1] or 'ยินดี' in message[1] else 'var(--red)'}}">
+      {{'✅' if 'สำเร็จ' in message[1] or 'ยินดี' in message[1] else '❌'}} {{ message[1] }}
+    </div>
+  </div>
+  {% endif %}
+  <div class="card card-p">
+    <div style="text-align:center;margin-bottom:20px">
+      <div style="font-size:2.5em;margin-bottom:8px">🎟️</div>
+      <div style="font-size:.95em;font-weight:700;color:var(--text)" data-th="Check-in Ticket" data-en="Check-in Ticket">Check-in Ticket</div>
+      <div style="font-size:.76em;color:var(--text3);margin-top:3px" data-th="กรอกรหัส Ticket 8 หลัก" data-en="Enter your 8-digit ticket code">กรอกรหัส Ticket 8 หลัก</div>
+    </div>
+    <form method="post" action="/checkin">
+      <div class="field">
+        <label data-th="รหัส Ticket" data-en="Ticket Code">รหัส Ticket</label>
+        <input name="code" required maxlength="8" class="input"
+               style="font-family:var(--fm);font-size:1.2em;letter-spacing:4px;text-transform:uppercase;text-align:center"
+               placeholder="AB12CD34" oninput="this.value=this.value.toUpperCase()">
+      </div>
+      <button type="submit" class="btn btn-success" style="width:100%;justify-content:center;padding:11px">
+        <span data-th="✅ Check-in" data-en="✅ Check-in">✅ Check-in</span>
+      </button>
+    </form>
+  </div>
+</div>
+{% endblock %}

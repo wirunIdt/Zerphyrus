@@ -1,0 +1,770 @@
+{% extends "base.html" %}
+{% block title %}Dashboard{% endblock %}
+{% block topbar_title %}<span data-th="📊 Admin Dashboard" data-en="📊 Admin Dashboard">📊 Admin Dashboard</span>{% endblock %}
+{% block extra_head %}
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+<style>
+/* Gradient stat cards row */
+.gs-row{display:grid;grid-template-columns:repeat(4,1fr);gap:14px;margin-bottom:20px}
+/* Tab bar */
+.tab-bar{display:flex;gap:4px;background:var(--surface2);border:1px solid var(--border);border-radius:var(--r-pill);padding:4px;width:fit-content;margin-bottom:18px;flex-wrap:wrap}
+.tab-btn{padding:7px 16px;border-radius:var(--r-pill);font-size:.76em;font-weight:600;color:var(--text2);cursor:pointer;border:none;background:transparent;transition:all .18s;white-space:nowrap;display:flex;align-items:center;gap:5px}
+.tab-btn.on{background:linear-gradient(135deg,var(--brand-a),var(--brand-b));color:#fff;box-shadow:0 2px 12px rgba(108,99,255,.3)}
+.tab-pane{display:none}.tab-pane.on{display:block}
+/* Filter pills */
+.filter-pills{display:flex;gap:6px;margin-bottom:12px;flex-wrap:wrap}
+.fp{padding:5px 12px;border-radius:var(--r-pill);font-size:.74em;font-weight:600;border:1.5px solid var(--border);background:var(--surface);color:var(--text2);cursor:pointer;text-decoration:none;transition:all .18s}
+.fp:hover{border-color:var(--accent);color:var(--accent)}.fp.on{background:var(--accent);color:#fff;border-color:var(--accent)}
+/* Tasks */
+.task-item{padding:14px 18px;border-bottom:1px solid var(--border2);display:flex;align-items:flex-start;gap:10px;transition:background .15s}
+.task-item:last-child{border-bottom:none}.task-item:hover{background:var(--surface2)}
+.t-prio{width:3px;border-radius:2px;align-self:stretch;flex-shrink:0;min-height:40px}
+.t-body{flex:1;min-width:0}
+.t-sn{font-family:var(--fm);font-size:.65em;font-weight:600;color:var(--accent);background:var(--accent-lt);padding:2px 8px;border-radius:var(--r-pill);display:inline-block;margin-bottom:3px}
+.t-title{font-size:.87em;font-weight:700;color:var(--text)}
+.t-meta{font-size:.74em;color:var(--text3);margin-top:2px}
+.t-desc{font-size:.76em;color:var(--text2);margin:4px 0;line-height:1.45;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+.t-footer{display:flex;gap:6px;margin-top:7px;flex-wrap:wrap;align-items:center}
+.status-sel{font-size:.72em;padding:4px 8px;border-radius:var(--r-sm);border:1.5px solid var(--border);background:var(--surface2);color:var(--text);cursor:pointer;font-family:var(--f);outline:none;transition:border-color .18s}
+.status-sel:focus{border-color:var(--accent)}
+/* Charts */
+.chart-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:14px;margin-bottom:16px}
+.chart-box{padding:16px}
+.chart-title{font-size:.78em;font-weight:600;color:var(--text2);margin-bottom:12px}
+/* Stamp */
+.stamp-dots{display:flex;gap:4px;flex-wrap:wrap;margin:7px 0}
+.s-dot{width:26px;height:26px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:.82em;flex-shrink:0;transition:all .2s}
+.s-dot.filled{background:linear-gradient(135deg,var(--brand-a),var(--brand-b));box-shadow:0 2px 8px rgba(108,99,255,.4)}
+.s-dot.empty{background:var(--surface2);border:2px dashed var(--border);color:var(--text3);font-size:.58em}
+.stamp-item{padding:14px 18px;border-bottom:1px solid var(--border2)}.stamp-item:last-child{border-bottom:none}.stamp-item:hover{background:var(--surface2)}
+/* Queue */
+.q-row{padding:11px 16px;border-bottom:1px solid var(--border2);display:flex;align-items:center;gap:9px;cursor:grab;transition:all .18s;flex-wrap:wrap;user-select:none}
+.q-row:hover{background:var(--surface2)}.q-row:last-child{border-bottom:none}
+.q-row.dragging{opacity:.4;background:var(--accent-lt)}.q-row.drag-over{background:var(--accent-lt);border-top:2px solid var(--accent)}
+.q-today{border-left:3px solid var(--green)}.q-soon{border-left:3px solid var(--amber)}
+.q-num{width:24px;height:24px;border-radius:50%;background:linear-gradient(135deg,var(--brand-a),var(--brand-b));color:#fff;display:flex;align-items:center;justify-content:center;font-size:.68em;font-weight:700;flex-shrink:0}
+.q-handle{color:var(--text3);font-size:1.1em;cursor:grab;padding:0 2px;flex-shrink:0}
+.q-input{padding:4px 7px;border:1.5px solid var(--border);border-radius:var(--r-sm);background:var(--surface2);color:var(--text);font-size:.75em;font-family:var(--f);outline:none}
+.q-input:focus{border-color:var(--accent)}
+/* Calendar */
+.wr-kpi{display:grid;grid-template-columns:repeat(6,1fr);gap:10px;margin-bottom:14px}
+.cal-day{display:flex;flex-direction:column;align-items:center;gap:3px;font-size:.68em;cursor:pointer}
+.cal-cb{width:14px;height:14px;accent-color:var(--accent);cursor:pointer}
+.cal-date-row{display:flex;justify-content:space-between;align-items:center;padding:6px 10px;background:var(--surface2);border-radius:var(--r-sm);margin-bottom:5px;font-size:.8em}
+/* Slip */
+.slip-card{padding:14px 18px;border-bottom:1px solid var(--border2);display:flex;gap:12px;flex-wrap:wrap;align-items:flex-start}
+.slip-card:last-child{border-bottom:none}
+.slip-thumb{width:80px;height:80px;border-radius:var(--r-sm);object-fit:cover;flex-shrink:0;border:1px solid var(--border);cursor:zoom-in;transition:.2s}
+.slip-thumb:hover{transform:scale(1.04)}
+.note-input{padding:6px 10px;border:1.5px solid var(--border);border-radius:var(--r-sm);background:var(--surface2);color:var(--text);font-size:.76em;font-family:var(--f);outline:none;transition:border-color .18s;min-width:110px}
+.note-input:focus{border-color:var(--accent)}
+/* Ticket */
+.ticket-item{padding:12px 18px;border-bottom:1px solid var(--border2);display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+.ticket-item:last-child{border-bottom:none}
+.ticket-code{font-family:var(--fm);font-size:1em;font-weight:700;color:var(--accent);letter-spacing:2px;white-space:nowrap}
+/* Todo */
+.todo-item{padding:10px 16px;border-bottom:1px solid var(--border2);display:flex;align-items:center;gap:10px;transition:background .15s}
+.todo-item:last-child{border-bottom:none}.todo-item:hover{background:var(--surface2)}
+.todo-cb{width:16px;height:16px;accent-color:var(--accent);cursor:pointer;flex-shrink:0}
+.todo-text{flex:1;font-size:.85em;color:var(--text);transition:all .2s}
+.todo-text.done{text-decoration:line-through;color:var(--text3)}
+/* Mini calendar */
+.mini-cal{display:grid;grid-template-columns:repeat(7,1fr);gap:2px}
+.mc-day{aspect-ratio:1;border-radius:6px;display:flex;align-items:center;justify-content:center;font-size:.72em;cursor:pointer;transition:all .15s;color:var(--text2)}
+.mc-day:hover{background:var(--surface3)}
+.mc-day.today{background:linear-gradient(135deg,var(--brand-a),var(--brand-b));color:#fff;font-weight:700}
+.mc-day.has-task{background:var(--accent-lt);color:#a78bfa;font-weight:600}
+.mc-day.other-month{color:var(--text3);opacity:.4}
+.mc-header{font-size:.62em;font-weight:700;color:var(--text3);text-align:center;padding:4px 0;text-transform:uppercase;letter-spacing:.5px}
+
+@media(max-width:1100px){.gs-row{grid-template-columns:1fr 1fr}.wr-kpi{grid-template-columns:repeat(3,1fr)}.chart-grid{grid-template-columns:1fr 1fr}}
+@media(max-width:700px){.gs-row{grid-template-columns:1fr 1fr}.chart-grid{grid-template-columns:1fr}.tab-bar{width:100%}}
+</style>
+{% endblock %}
+{% block content %}
+
+<!-- Gradient stat cards -->
+<div class="gs-row">
+  <div class="grad-card" style="background:var(--c-teal)">
+    <div class="gc-label"><span data-th="งานทั้งหมด" data-en="Total Orders">งานทั้งหมด</span><span class="gc-icon">📋</span></div>
+    <div class="gc-value">{{ stats.total }}</div>
+    <div class="gc-change"><span class="arrow">↑</span> <span data-th="ออเดอร์รวม" data-en="All orders">ออเดอร์รวม</span></div>
+  </div>
+  <div class="grad-card" style="background:var(--c-violet)">
+    <div class="gc-label"><span data-th="รอดำเนินการ" data-en="Pending">รอดำเนินการ</span><span class="gc-icon">⏳</span></div>
+    <div class="gc-value">{{ stats.pending }}</div>
+    <div class="gc-change"><span class="arrow">→</span> <span data-th="รอทำ" data-en="Awaiting">รอทำ</span></div>
+  </div>
+  <div class="grad-card" style="background:var(--c-orange)">
+    <div class="gc-label"><span data-th="กำลังทำ" data-en="In Progress">กำลังทำ</span><span class="gc-icon">⚙️</span></div>
+    <div class="gc-value">{{ stats.inprogress }}</div>
+    <div class="gc-change"><span class="arrow">↗</span> <span data-th="กำลังดำเนินการ" data-en="In progress">กำลังดำเนินการ</span></div>
+  </div>
+  <div class="grad-card" style="background:var(--c-green)">
+    <div class="gc-label"><span data-th="เสร็จสิ้น" data-en="Completed">เสร็จสิ้น</span><span class="gc-icon">✅</span></div>
+    <div class="gc-value">{{ stats.completed }}</div>
+    <div class="gc-change"><span class="arrow">↑</span> <span data-th="งานเสร็จ" data-en="Done">งานเสร็จ</span></div>
+  </div>
+</div>
+
+<!-- Tab bar -->
+<div class="tab-bar">
+  <button class="tab-btn on" onclick="switchTab(this,'tasks')" data-th="📋 งาน" data-en="📋 Tasks">📋 งาน</button>
+  <button class="tab-btn" onclick="switchTab(this,'analytics')" data-th="📊 Analytics" data-en="📊 Analytics">📊 Analytics</button>
+  <button class="tab-btn" onclick="switchTab(this,'stamps')" data-th="🏅 Stamps" data-en="🏅 Stamps">🏅 Stamps</button>
+  <button class="tab-btn" onclick="switchTab(this,'tickets')" data-th="🎟️ Tickets" data-en="🎟️ Tickets">🎟️ Tickets</button>
+  <button class="tab-btn" onclick="switchTab(this,'queue')" data-th="📬 คิว" data-en="📬 Queue">📬 คิว</button>
+  <button class="tab-btn" onclick="switchTab(this,'cal_todo')" data-th="📅 ปฏิทิน & Todo" data-en="📅 Calendar & Todo">📅 ปฏิทิน & Todo</button>
+  <button class="tab-btn" onclick="switchTab(this,'slips')">
+    💸 <span data-th="สลิป" data-en="Slips">สลิป</span>
+    {% if pending_slips > 0 %}<span class="sb-badge">{{ pending_slips }}</span>{% endif %}
+  </button>
+</div>
+
+<!-- ═══ TAB 1: TASKS ═══ -->
+<div id="pane-tasks" class="tab-pane on">
+  <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;flex-wrap:wrap;gap:8px">
+    <div class="filter-pills">
+      <a href="/admin/filter/all"        class="fp {% if not current_filter or current_filter=='all' %}on{% endif %}" data-th="ทั้งหมด" data-en="All">ทั้งหมด</a>
+      <a href="/admin/filter/pending"    class="fp {% if current_filter=='pending' %}on{% endif %}" data-th="⏳ รอ" data-en="⏳ Pending">⏳ รอ</a>
+      <a href="/admin/filter/inprogress" class="fp {% if current_filter=='inprogress' %}on{% endif %}" data-th="⚙️ ทำอยู่" data-en="⚙️ In Progress">⚙️ ทำอยู่</a>
+      <a href="/admin/filter/completed"  class="fp {% if current_filter=='completed' %}on{% endif %}" data-th="✅ เสร็จ" data-en="✅ Done">✅ เสร็จ</a>
+    </div>
+    <a href="/admin/export_excel" class="btn btn-secondary btn-sm" data-th="📑 Excel" data-en="📑 Excel">📑 Excel</a>
+  </div>
+  <div class="card" style="overflow:hidden">
+    {% if tasks %}{% for t in tasks %}
+    <div class="task-item" id="task-{{ t.id }}">
+      <div class="t-prio" style="background:{%if t.priority=='high'%}var(--red){%elif t.priority=='medium'%}var(--amber){%else%}var(--green){%endif%}"></div>
+      <div class="t-body">
+        <div style="display:flex;align-items:center;gap:7px;flex-wrap:wrap;margin-bottom:2px">
+          <span class="t-sn">{{ t.sn or t.id[:8] }}</span>
+          <span class="badge badge-{% if t.status=='pending'%}amber{%elif t.status=='inprogress'%}blue{%elif t.status=='completed'%}green{%else%}red{%endif%}" id="badge-{{ t.id }}">
+            {%if t.status=='pending'%}⏳ รอ{%elif t.status=='inprogress'%}⚙️ ทำอยู่{%elif t.status=='completed'%}✅ เสร็จ{%else%}❌ ยกเลิก{%endif%}
+          </span>
+          <span class="badge badge-{%if t.priority=='high'%}red{%elif t.priority=='medium'%}amber{%else%}green{%endif%}">
+            {%if t.priority=='high'%}🔴{%elif t.priority=='medium'%}🟡{%else%}🟢{%endif%} {%if t.priority=='high'%}เร่งด่วน{%elif t.priority=='medium'%}ปานกลาง{%else%}ทั่วไป{%endif%}
+          </span>
+        </div>
+        <div class="t-title">{{ t.title }}</div>
+        <div class="t-meta">👤 {{ t.customer.name }} · 📞 {{ t.customer.phone }}{%if t.deadline%} · 📅 {{ t.deadline }}{%endif%}</div>
+        {%if t.description%}<div class="t-desc">{{ t.description }}</div>{%endif%}
+        <div class="t-footer">
+          <select class="status-sel" onchange="changeStatus('{{ t.id }}',this)">
+            <option value="pending" {%if t.status=='pending'%}selected{%endif%}>⏳ รอ</option>
+            <option value="inprogress" {%if t.status=='inprogress'%}selected{%endif%}>⚙️ กำลังทำ</option>
+            <option value="completed" {%if t.status=='completed'%}selected{%endif%}>✅ เสร็จ</option>
+            <option value="cancelled" {%if t.status=='cancelled'%}selected{%endif%}>❌ ยกเลิก</option>
+          </select>
+          <a href="/admin/order_pdf/{{ t.id }}?qr=1" class="btn btn-ghost btn-xs">📄 PDF</a>
+          <a href="/payment/{{ t.id }}" class="btn btn-ghost btn-xs" style="color:var(--green)">💳 ชำระ</a>
+          <button class="btn btn-ghost btn-xs" style="color:var(--red)" onclick="delTask('{{ t.id }}','{{ t.title|e }}',this)">🗑</button>
+        </div>
+      </div>
+    </div>
+    {% endfor %}{% else %}
+    <div style="text-align:center;padding:50px;color:var(--text3)"><div style="font-size:3em;opacity:.2;margin-bottom:12px">📭</div><p data-th="ยังไม่มีออเดอร์" data-en="No orders yet">ยังไม่มีออเดอร์</p></div>
+    {% endif %}
+  </div>
+</div>
+
+<!-- ═══ TAB 2: ANALYTICS ═══ -->
+<div id="pane-analytics" class="tab-pane">
+  <div class="grid-4" style="margin-bottom:14px">
+    <div class="card stat-card"><div class="stat-label">Completion Rate</div><div class="stat-value" style="color:var(--green)">{{ analytics.completion_rate }}%</div></div>
+    <div class="card stat-card"><div class="stat-label" data-th="งานทั้งหมด" data-en="Total">งานทั้งหมด</div><div class="stat-value">{{ stats.total }}</div></div>
+    <div class="card stat-card"><div class="stat-label" data-th="Stamps" data-en="Stamps">Stamps</div><div class="stat-value">{{ stamp_stats.total_stamps }}</div></div>
+    <div class="card stat-card"><div class="stat-label" data-th="Check-in" data-en="Check-in">Check-in</div><div class="stat-value">{{ ticket_stats.checked_in }}</div></div>
+  </div>
+  <div class="chart-grid">
+    <div class="card chart-box"><div class="chart-title" data-th="📈 ออเดอร์ 14 วัน" data-en="📈 14-Day Orders">📈 ออเดอร์ 14 วัน</div><canvas id="cDays" style="max-height:200px"></canvas></div>
+    <div class="card chart-box"><div class="chart-title" data-th="🥧 สถานะงาน" data-en="🥧 Status Breakdown">🥧 สถานะงาน</div><canvas id="cStatus" style="max-height:200px"></canvas></div>
+    <div class="card chart-box"><div class="chart-title" data-th="📊 Priority" data-en="📊 Priority">📊 Priority</div><canvas id="cPrio" style="max-height:200px"></canvas></div>
+  </div>
+</div>
+
+<!-- ═══ TAB 3: STAMPS ═══ -->
+<div id="pane-stamps" class="tab-pane">
+  <div class="grid-3" style="margin-bottom:14px">
+    <div class="card stat-card"><div class="stat-label" data-th="ลูกค้าทั้งหมด" data-en="Customers">ลูกค้าทั้งหมด</div><div class="stat-value">{{ stamp_stats.total_customers }}</div></div>
+    <div class="card stat-card"><div class="stat-label" data-th="Stamps รวม" data-en="Total Stamps">Stamps รวม</div><div class="stat-value">{{ stamp_stats.total_stamps }}</div></div>
+    <div class="card stat-card"><div class="stat-label" data-th="แลกรางวัลแล้ว" data-en="Redeemed">แลกรางวัลแล้ว</div><div class="stat-value">{{ stamp_stats.total_redeemed }}</div></div>
+  </div>
+  <div class="card card-p" style="margin-bottom:12px">
+    <div class="sec-title" style="margin-bottom:10px" data-th="➕ เพิ่มแสตมป์" data-en="➕ Add Stamp">➕ เพิ่มแสตมป์</div>
+    <div style="display:flex;gap:10px;flex-wrap:wrap">
+      <input type="tel" id="stamp-phone" class="input" placeholder="เบอร์โทร *" data-ph-th="เบอร์โทร *" data-ph-en="Phone *" style="width:160px">
+      <input type="text" id="stamp-name" class="input" placeholder="ชื่อลูกค้า" data-ph-th="ชื่อลูกค้า" data-ph-en="Customer Name" style="width:160px">
+      <button class="btn btn-primary btn-sm" onclick="addStampManual(this)" data-th="➕ เพิ่ม" data-en="➕ Add">➕ เพิ่ม</button>
+    </div>
+  </div>
+  <div class="card" style="overflow:hidden">
+    {% if stamps %}{% for phone, info in stamps.items() %}
+    <div class="stamp-item">
+      <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:6px">
+        <div><div style="font-weight:700;font-size:.88em">{{ info.name or '—' }}</div><div style="font-size:.74em;color:var(--accent)">📞 {{ phone }}</div></div>
+        <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+          <span style="font-size:.74em;color:var(--text3)">🏅 <strong style="color:var(--accent)">{{ info.stamps }}</strong>/{{ stamps_to_reward }} · รวม {{ info.total_earned }}</span>
+          {% if info.stamps >= stamps_to_reward %}<button class="btn btn-success btn-sm" onclick="redeemStamp('{{ phone }}',this)" data-th="🎁 แลกรางวัล" data-en="🎁 Redeem">🎁 แลกรางวัล</button>{% endif %}
+        </div>
+      </div>
+      <div class="stamp-dots">
+        {% for i in range(stamps_to_reward) %}
+        <div class="s-dot {% if i<info.stamps %}filled{% else %}empty{% endif %}">{%if i<info.stamps%}⭐{%else%}{{ i+1 }}{%endif%}</div>
+        {% endfor %}
+      </div>
+    </div>
+    {% endfor %}{% else %}
+    <div style="text-align:center;padding:40px;color:var(--text3)">
+      <div style="font-size:3em;opacity:.2;margin-bottom:10px">🏅</div><p data-th="ยังไม่มี Stamp Card" data-en="No stamp cards yet">ยังไม่มี Stamp Card</p>
+    </div>{% endif %}
+  </div>
+</div>
+
+<!-- ═══ TAB 4: TICKETS ═══ -->
+<div id="pane-tickets" class="tab-pane">
+  <div class="grid-3" style="margin-bottom:12px">
+    <div class="card stat-card"><div class="stat-label">Tickets</div><div class="stat-value">{{ ticket_stats.total }}</div></div>
+    <div class="card stat-card"><div class="stat-label" data-th="Active" data-en="Active">Active</div><div class="stat-value" style="color:var(--green)">{{ ticket_stats.active }}</div></div>
+    <div class="card stat-card"><div class="stat-label">Checked In</div><div class="stat-value" style="color:var(--accent)">{{ ticket_stats.checked_in }}</div></div>
+  </div>
+  <div class="card card-p" style="margin-bottom:12px">
+    <div class="sec-title" style="margin-bottom:8px" data-th="🔍 Admin Check-in" data-en="🔍 Admin Check-in">🔍 Admin Check-in</div>
+    <div style="display:flex;gap:10px;flex-wrap:wrap">
+      <input type="text" id="ci-code" class="input" placeholder="Ticket Code" maxlength="8"
+             style="width:200px;font-family:var(--fm);letter-spacing:2px;text-transform:uppercase"
+             oninput="this.value=this.value.toUpperCase()">
+      <button class="btn btn-success btn-sm" onclick="adminCheckin(this)" data-th="✅ Check-in" data-en="✅ Check-in">✅ Check-in</button>
+    </div>
+  </div>
+  <div class="card" style="overflow:hidden">
+    {% if tickets %}{% for code, t in tickets.items() %}
+    <div class="ticket-item">
+      <div class="ticket-code">{{ code }}</div>
+      <div style="flex:1;min-width:0">
+        <div style="font-weight:700;font-size:.86em">{{ t.customer_name }}</div>
+        <div style="font-size:.74em;color:var(--text3)">📞 {{ t.customer_phone }} · {{ t.task_title[:35] }}</div>
+      </div>
+      <span class="badge badge-{% if t.status=='active'%}green{%else%}accent{%endif%}" id="tc-{{ code }}">
+        {%if t.status=='active'%}🟢 Active{%else%}✅ Done{%endif%}
+      </span>
+      <a href="/ticket/{{ code }}" target="_blank" class="btn btn-ghost btn-xs">👁</a>
+    </div>
+    {% endfor %}{% else %}
+    <div style="text-align:center;padding:40px;color:var(--text3)">
+      <div style="font-size:3em;opacity:.2;margin-bottom:10px">🎟️</div><p data-th="ยังไม่มี Ticket" data-en="No tickets yet">ยังไม่มี Ticket</p>
+    </div>{% endif %}
+  </div>
+</div>
+
+<!-- ═══ TAB 5: QUEUE ═══ -->
+<div id="pane-queue" class="tab-pane">
+  <div class="grid-4" style="margin-bottom:12px">
+    <div class="card stat-card"><div class="stat-label" data-th="งานในคิว" data-en="In Queue">งานในคิว</div><div class="stat-value">{{ queue_tasks|length }}</div></div>
+    <div class="card stat-card"><div class="stat-label" data-th="Capacity/วัน" data-en="Capacity/Day">Capacity/วัน</div><div class="stat-value">{{ calendar.capacity_per_day }}</div></div>
+    <div class="card stat-card"><div class="stat-label" data-th="วันนี้" data-en="Today">วันนี้</div><div class="stat-value">{{ queue_tasks|selectattr('days_until','equalto',0)|list|length }}</div></div>
+    <div class="card stat-card"><div class="stat-label" data-th="คิวสุดท้าย" data-en="Last Queue">คิวสุดท้าย</div><div class="stat-value" style="font-size:1em">{% if queue_tasks %}{{ queue_tasks[-1].estimated_date }}{% else %}—{% endif %}</div></div>
+  </div>
+  <div class="card" style="overflow:hidden;margin-bottom:8px">
+    <div style="padding:10px 16px;font-size:.76em;color:var(--text3);border-bottom:1px solid var(--border2)" data-th="💡 ลากเพื่อเรียงลำดับ กรอกชั่วโมง/หมายเหตุ กด 💾" data-en="💡 Drag to reorder, enter hours/notes, press 💾">💡 ลากเพื่อเรียงลำดับ กรอกชั่วโมง/หมายเหตุ กด 💾</div>
+    <div id="sortable-queue">
+      {% if queue_tasks %}{% for task in queue_tasks %}
+      <div class="q-row {% if task.days_until==0%}q-today{%elif task.days_until<=2%}q-soon{%endif%}" data-id="{{ task.id }}" draggable="true">
+        <div class="q-handle">⠿</div>
+        <div class="q-num">{{ task.queue_pos }}</div>
+        <div style="flex:1;min-width:0">
+          <div style="font-weight:700;font-size:.83em">{{ task.title }}</div>
+          <div style="font-size:.72em;color:var(--text3)">👤 {{ task.customer.name }} · 📞 {{ task.customer.phone }}</div>
+        </div>
+        <span class="badge badge-{%if task.priority=='high'%}red{%elif task.priority=='medium'%}amber{%else%}green{%endif%}">
+          {%if task.priority=='high'%}🔴{%elif task.priority=='medium'%}🟡{%else%}🟢{%endif%}
+        </span>
+        <div style="text-align:right;min-width:76px">
+          <div style="font-size:.65em;color:var(--text3)" data-th="คาดเสร็จ" data-en="ETA">คาดเสร็จ</div>
+          <div style="font-weight:700;font-size:.8em;color:{%if task.days_until==0%}var(--green){%elif task.days_until<=2%}var(--amber){%else%}var(--accent){%endif%}">{{ task.estimated_date }}</div>
+          <div style="font-size:.65em;color:var(--text3)">{%if task.days_until==0%}วันนี้{%elif task.days_until==1%}พรุ่งนี้{%else%}{{ task.days_until }} วัน{%endif%}</div>
+        </div>
+        <div style="display:flex;gap:5px;align-items:center">
+          <input type="number" class="q-input" data-task-id="{{ task.id }}" data-field="hours" value="{{ task.estimated_hours or '' }}" placeholder="ชม." min="0" step="0.5" style="width:50px">
+          <input type="text" class="q-input" data-task-id="{{ task.id }}" data-field="note" value="{{ task.queue_note or '' }}" placeholder="หมายเหตุ" style="width:88px">
+          <button class="btn btn-ghost btn-xs" onclick="saveEstimate('{{ task.id }}',this)">💾</button>
+        </div>
+      </div>
+      {% endfor %}{% else %}
+      <div style="text-align:center;padding:36px;color:var(--text3)" data-th="ไม่มีงานในคิว" data-en="No tasks in queue">ไม่มีงานในคิว</div>
+      {% endif %}
+    </div>
+  </div>
+</div>
+
+<!-- ═══ TAB 6: CALENDAR & TODO ═══ -->
+<div id="pane-cal_todo" class="tab-pane">
+  <div class="grid-2" style="margin-bottom:16px">
+
+    <!-- LEFT: Mini Calendar + Todo -->
+    <div style="display:flex;flex-direction:column;gap:14px">
+      <!-- Mini calendar widget -->
+      <div class="card card-p">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px">
+          <button class="btn btn-ghost btn-xs" onclick="navCal(-1)">‹</button>
+          <div style="font-size:.88em;font-weight:700;color:var(--text)" id="calMonth">—</div>
+          <button class="btn btn-ghost btn-xs" onclick="navCal(1)">›</button>
+        </div>
+        <!-- Day headers -->
+        <div class="mini-cal" style="margin-bottom:4px">
+          {% for d in ['อา','จ','อ','พ','พฤ','ศ','ส'] %}
+          <div class="mc-header">{{ d }}</div>
+          {% endfor %}
+        </div>
+        <div class="mini-cal" id="calGrid"></div>
+        <!-- Task dots legend -->
+        <div style="margin-top:10px;font-size:.7em;color:var(--text3);display:flex;gap:12px">
+          <span style="display:flex;align-items:center;gap:4px"><span style="width:8px;height:8px;border-radius:50%;background:var(--accent);display:inline-block"></span><span data-th="มีงาน" data-en="Has tasks">มีงาน</span></span>
+          <span style="display:flex;align-items:center;gap:4px"><span style="width:8px;height:8px;border-radius:50%;background:linear-gradient(135deg,var(--brand-a),var(--brand-b));display:inline-block"></span><span data-th="วันนี้" data-en="Today">วันนี้</span></span>
+        </div>
+      </div>
+
+      <!-- Selected day tasks -->
+      <div class="card card-p">
+        <div class="sec-title" style="margin-bottom:10px" id="dayTasksTitle" data-th="งานของวันที่เลือก" data-en="Tasks on selected day">งานของวันที่เลือก</div>
+        <div id="dayTasksList" style="font-size:.82em;color:var(--text3)" data-th="คลิกวันในปฏิทิน" data-en="Click a day on calendar">คลิกวันในปฏิทิน</div>
+      </div>
+    </div>
+
+    <!-- RIGHT: Todo List + Yearly settings -->
+    <div style="display:flex;flex-direction:column;gap:14px">
+      <!-- Todo list -->
+      <div class="card">
+        <div style="padding:14px 16px;border-bottom:1px solid var(--border2);display:flex;align-items:center;justify-content:space-between">
+          <div class="sec-title" data-th="✅ Todo List" data-en="✅ Todo List">✅ Todo List</div>
+          <span style="font-size:.72em;color:var(--text3)" id="todo-count">{{ todos|length }} <span data-th="รายการ" data-en="items">รายการ</span></span>
+        </div>
+        <!-- Add todo form -->
+        <div style="padding:10px 16px;border-bottom:1px solid var(--border2);display:flex;gap:8px;flex-wrap:wrap;align-items:flex-end">
+          <div style="flex:1;min-width:140px">
+            <input type="text" id="todo-text" class="input" placeholder="เพิ่มรายการ..." data-ph-th="เพิ่มรายการ..." data-ph-en="Add task..."
+                   onkeydown="if(event.key==='Enter')addTodo()">
+          </div>
+          <div>
+            <select id="todo-prio" class="input" style="width:100px;font-size:.76em">
+              <option value="high" data-th="เร่งด่วน" data-en="High">เร่งด่วน</option>
+              <option value="medium" selected data-th="ปานกลาง" data-en="Medium">ปานกลาง</option>
+              <option value="low" data-th="ทั่วไป" data-en="Low">ทั่วไป</option>
+            </select>
+          </div>
+          <div>
+            <input type="date" id="todo-due" class="input" style="width:130px;font-size:.76em">
+          </div>
+          <button class="btn btn-primary btn-sm" onclick="addTodo()" data-th="➕" data-en="➕">➕</button>
+        </div>
+        <!-- Todo items -->
+        <div id="todo-list" style="max-height:340px;overflow-y:auto">
+          {% if todos %}
+          {% for t in todos %}
+          <div class="todo-item" id="todo-{{ t.id }}">
+            <div style="width:4px;height:32px;border-radius:2px;flex-shrink:0;background:{%if t.priority=='high'%}var(--red){%elif t.priority=='medium'%}var(--amber){%else%}var(--green){%endif%}"></div>
+            <input type="checkbox" class="todo-cb" {% if t.done %}checked{% endif %} onchange="toggleTodo('{{ t.id }}',this)">
+            <div class="t-body">
+              <div class="todo-text {% if t.done %}done{% endif %}">{{ t.text }}</div>
+              {% if t.due %}<div style="font-size:.7em;color:var(--text3)">📅 {{ t.due }}</div>{% endif %}
+            </div>
+            <button class="btn btn-ghost btn-xs" style="color:var(--red)" onclick="deleteTodo('{{ t.id }}',this)">✕</button>
+          </div>
+          {% endfor %}
+          {% else %}
+          <div style="text-align:center;padding:28px;color:var(--text3);font-size:.82em" id="todo-empty" data-th="ยังไม่มีรายการ Todo" data-en="No todos yet">ยังไม่มีรายการ Todo</div>
+          {% endif %}
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Bottom: Work calendar settings + yearly analytics -->
+  <hr class="div">
+  <div style="font-size:.92em;font-weight:700;color:var(--text);margin-bottom:12px" data-th="📅 ตั้งค่าปฏิทินทำงาน" data-en="📅 Work Calendar Settings">📅 ตั้งค่าปฏิทินทำงาน</div>
+
+  <!-- Yearly KPI -->
+  <div class="wr-kpi">
+    <div class="card stat-card"><div class="stat-label" data-th="อัตรา YTD" data-en="Rate YTD">อัตรา YTD</div><div class="stat-value" style="color:var(--green)" id="ya-rate">{{ ya.ytd_rate }}%</div></div>
+    <div class="card stat-card"><div class="stat-label" data-th="เสร็จปีนี้" data-en="Done this year">เสร็จปีนี้</div><div class="stat-value" id="ya-completed">{{ ya.total_completed }}</div></div>
+    <div class="card stat-card"><div class="stat-label" data-th="รับงานปีนี้" data-en="Orders this year">รับงานปีนี้</div><div class="stat-value" id="ya-created">{{ ya.total_created }}</div></div>
+    <div class="card stat-card"><div class="stat-label" data-th="วันทำงาน" data-en="Work Days">วันทำงาน</div><div class="stat-value" id="ya-workdays">{{ ya.ytd_work_days }}</div></div>
+    <div class="card stat-card"><div class="stat-label">Capacity YTD</div><div class="stat-value" id="ya-capacity">{{ ya.ytd_capacity }}</div></div>
+    <div class="card stat-card"><div class="stat-label" data-th="Lead Time" data-en="Lead Time">Lead Time</div><div class="stat-value" id="ya-lead">{{ ya.avg_lead_days }}d</div></div>
+  </div>
+
+  <!-- Year select -->
+  <div style="display:flex;gap:6px;margin-bottom:14px;align-items:center;flex-wrap:wrap">
+    <span style="font-size:.76em;color:var(--text3)" data-th="ปี:" data-en="Year:">ปี:</span>
+    {% for yr in ya.all_years %}
+    <a href="#" onclick="loadYear({{ yr }});return false" class="fp {% if yr==ya.year %}on{% endif %}" id="yr-btn-{{ yr }}">{{ yr }}</a>
+    {% endfor %}
+  </div>
+
+  <div class="grid-2" style="margin-bottom:16px">
+    <div class="card chart-box">
+      <div class="chart-title" data-th="📈 รับ vs เสร็จ รายเดือน" data-en="📈 Created vs Completed">📈 รับ vs เสร็จ รายเดือน</div>
+      <canvas id="chartMonthly" style="max-height:200px"></canvas>
+    </div>
+    <div class="card chart-box">
+      <div class="chart-title" data-th="📊 อัตราทำงาน %" data-en="📊 Work Rate %">📊 อัตราทำงาน %</div>
+      <canvas id="chartRate" style="max-height:200px"></canvas>
+    </div>
+  </div>
+
+  <div class="grid-2">
+    <!-- Cal settings -->
+    <div class="card card-p">
+      <div class="sec-title" style="margin-bottom:12px" data-th="⚙️ วันทำงาน & Capacity" data-en="⚙️ Work Days & Capacity">⚙️ วันทำงาน & Capacity</div>
+      <form id="cal-form" onsubmit="saveCalSettings(event)">
+        <div style="font-size:.72em;font-weight:600;color:var(--text2);margin-bottom:7px" data-th="วันทำงาน" data-en="Work Days">วันทำงาน</div>
+        <div style="display:flex;gap:10px;flex-wrap:wrap;margin-bottom:12px">
+          {% set wdn_th=['จ','อ','พ','พฤ','ศ','ส','อา'] %}
+          {% set wdn_en=['M','T','W','Th','F','Sa','Su'] %}
+          {% for i in range(7) %}
+          <div class="cal-day">
+            <input type="checkbox" class="cal-cb" name="work_days" value="{{ i }}" {% if i in calendar.work_days_of_week %}checked{% endif %}>
+            <span style="color:var(--text2)" data-th="{{ wdn_th[i] }}" data-en="{{ wdn_en[i] }}">{{ wdn_th[i] }}</span>
+          </div>
+          {% endfor %}
+        </div>
+        <div class="field" style="margin-bottom:12px">
+          <label data-th="Capacity/วัน" data-en="Capacity/Day">Capacity/วัน</label>
+          <input type="number" name="capacity" value="{{ calendar.capacity_per_day }}" min="1" max="99" class="input" style="width:80px">
+        </div>
+        <button type="submit" class="btn btn-primary btn-sm" id="cal-save-btn" data-th="💾 บันทึก" data-en="💾 Save">💾 บันทึก</button>
+      </form>
+    </div>
+    <!-- Special dates -->
+    <div class="card card-p">
+      <div class="sec-title" style="margin-bottom:10px" data-th="📌 วันพิเศษ" data-en="📌 Special Dates">📌 วันพิเศษ</div>
+      <form id="add-date-form" onsubmit="addCalDate(event)" style="display:flex;gap:7px;flex-wrap:wrap;margin-bottom:12px">
+        <input type="date" name="date" required class="input" style="width:130px;font-size:.78em">
+        <select name="type" class="input" style="width:130px;font-size:.76em">
+          <option value="holiday" data-th="🔴 หยุดนักขัตฤกษ์" data-en="🔴 Holiday">🔴 หยุดนักขัตฤกษ์</option>
+          <option value="off" data-th="🟡 หยุดพิเศษ" data-en="🟡 Day Off">🟡 หยุดพิเศษ</option>
+          <option value="extra" data-th="🟢 ทำงานชดเชย" data-en="🟢 Extra Day">🟢 ทำงานชดเชย</option>
+        </select>
+        <input type="text" name="note" placeholder="หมายเหตุ" class="input" style="flex:1;min-width:70px;font-size:.78em">
+        <button type="submit" class="btn btn-primary btn-sm">➕</button>
+      </form>
+      <div id="cal-dates-list" style="max-height:180px;overflow-y:auto">
+        {% if calendar.custom_dates %}
+        {% for ds, info in calendar.custom_dates.items()|sort %}
+        <div class="cal-date-row" id="cd-{{ ds }}">
+          <span>{%if info.type=='holiday'%}🔴{%elif info.type=='off'%}🟡{%else%}🟢{%endif%} <strong>{{ ds }}</strong>{%if info.note%} <span style="color:var(--text3)">{{ info.note }}</span>{%endif%}</span>
+          <button class="btn btn-ghost btn-xs" style="color:var(--red)" onclick="removeCalDate('{{ ds }}',this)">✕</button>
+        </div>
+        {% endfor %}
+        {% else %}
+        <div style="text-align:center;color:var(--text3);padding:12px;font-size:.78em" data-th="ยังไม่มีวันพิเศษ" data-en="No special dates">ยังไม่มีวันพิเศษ</div>
+        {% endif %}
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ═══ TAB 7: SLIPS ═══ -->
+<div id="pane-slips" class="tab-pane">
+  {% set approved_c = all_slips.values()|sum(start=[])|selectattr('status','equalto','approved')|list|length %}
+  {% set rejected_c = all_slips.values()|sum(start=[])|selectattr('status','equalto','rejected')|list|length %}
+  <div class="grid-3" style="margin-bottom:12px">
+    <div class="card stat-card"><div class="stat-label" data-th="รอยืนยัน" data-en="Pending">รอยืนยัน</div><div class="stat-value" style="color:var(--amber)">{{ pending_slips }}</div></div>
+    <div class="card stat-card"><div class="stat-label" data-th="อนุมัติ" data-en="Approved">อนุมัติ</div><div class="stat-value" style="color:var(--green)">{{ approved_c }}</div></div>
+    <div class="card stat-card"><div class="stat-label" data-th="ปฏิเสธ" data-en="Rejected">ปฏิเสธ</div><div class="stat-value" style="color:var(--red)">{{ rejected_c }}</div></div>
+  </div>
+  <div class="card" style="overflow:hidden">
+    {% set ns=namespace(found=false) %}
+    {% for t in tasks %}{% set ts=all_slips.get(t.id,[]) %}{% for idx in range(ts|length) %}{% set s=ts[idx] %}{% set ns.found=true %}
+    <div class="slip-card" style="border-left:3px solid {%if s.status=='approved'%}var(--green){%elif s.status=='rejected'%}var(--red){%else%}var(--amber){%endif%}">
+      <a href="/uploads/{{ s.file }}" target="_blank"><img class="slip-thumb" src="/uploads/{{ s.file }}" alt="slip"></a>
+      <div style="flex:1;min-width:0">
+        <div style="font-weight:700;font-size:.86em;margin-bottom:2px">{{ t.title }}</div>
+        <div style="font-size:.76em;color:var(--text2)">👤 {{ t.customer.name }} · 📞 {{ t.customer.phone }}</div>
+        <div style="font-size:.72em;color:var(--text3);margin-bottom:7px">📅 {{ s.uploaded_at[:16].replace('T',' ') }}{%if s.amount%} · <strong>฿{{ s.amount }}</strong>{%endif%}</div>
+        {%if s.status=='pending'%}<span class="badge badge-amber">⏳ <span data-th="รอยืนยัน" data-en="Pending">รอยืนยัน</span></span>
+        {%elif s.status=='approved'%}<span class="badge badge-green">✅ <span data-th="อนุมัติ" data-en="Approved">อนุมัติ</span></span>
+        {%else%}<span class="badge badge-red">❌ <span data-th="ปฏิเสธ" data-en="Rejected">ปฏิเสธ</span></span>{%endif%}
+        {%if s.status=='pending'%}
+        <div style="display:flex;gap:7px;flex-wrap:wrap;margin-top:8px;align-items:center">
+          <input type="text" class="note-input" id="sn-{{ t.id }}-{{ idx }}" placeholder="หมายเหตุ">
+          <button class="btn btn-success btn-xs" onclick="verifySlip('{{ t.id }}','{{ idx }}','approve',this)" data-th="✅ อนุมัติ" data-en="✅ Approve">✅ อนุมัติ</button>
+          <button class="btn btn-danger btn-xs" onclick="verifySlip('{{ t.id }}','{{ idx }}','reject',this)" data-th="❌ ปฏิเสธ" data-en="❌ Reject">❌ ปฏิเสธ</button>
+        </div>
+        {%endif%}
+      </div>
+    </div>
+    {% endfor %}{% endfor %}
+    {% if not ns.found %}<div style="text-align:center;padding:50px;color:var(--text3)"><div style="font-size:3em;opacity:.2;margin-bottom:12px">💸</div><p data-th="ยังไม่มีสลิป" data-en="No slips yet">ยังไม่มีสลิป</p></div>{% endif %}
+  </div>
+</div>
+
+{% endblock %}
+{% block extra_scripts %}
+<script>
+const ANALYTICS = {{ analytics|tojson }};
+let YA = {{ ya|tojson }};
+const ALL_TASKS = {{ tasks|map(attribute='deadline')|list|tojson }};
+// Build task dates map for calendar
+const TASK_DATES = {};
+{% for t in tasks %}{% if t.deadline %}'{{ t.deadline }}' in TASK_DATES ? TASK_DATES['{{ t.deadline }}'].push('{{ t.title|e }}') : (TASK_DATES['{{ t.deadline }}'] = ['{{ t.title|e }}']);{% endif %}{% endfor %}
+
+/* ── Charts ── */
+const CT = c => ({ticks:{color:c||'#8892b0',font:{size:10}},grid:{color:'rgba(255,255,255,.05)'}});
+const CP = {legend:{labels:{color:'#8892b0',font:{size:11}}}};
+let analyticsBuilt=false,calBuilt=false,chartMonthly,chartRate;
+
+function buildAnalyticsCharts(){
+  new Chart(document.getElementById('cDays'),{type:'line',data:{labels:ANALYTICS.day_labels.map(d=>d.slice(5)),datasets:[{label:'ออเดอร์',data:ANALYTICS.day_values,borderColor:'#6c63ff',backgroundColor:'rgba(108,99,255,.12)',tension:.4,fill:true,pointBackgroundColor:'#6c63ff'}]},options:{plugins:CP,scales:{x:CT(),y:{...CT(),beginAtZero:true}}}});
+  new Chart(document.getElementById('cStatus'),{type:'doughnut',data:{labels:ANALYTICS.status_labels,datasets:[{data:ANALYTICS.status_values,backgroundColor:['#f59e0b','#3b82f6','#10b981','#ef4444'],borderWidth:0}]},options:{plugins:CP,cutout:'65%'}});
+  new Chart(document.getElementById('cPrio'),{type:'bar',data:{labels:ANALYTICS.priority_labels,datasets:[{label:'จำนวน',data:ANALYTICS.priority_values,backgroundColor:['rgba(239,68,68,.7)','rgba(245,158,11,.7)','rgba(34,197,94,.7)'],borderRadius:5}]},options:{plugins:CP,scales:{x:{...CT(),grid:{display:false}},y:{...CT(),beginAtZero:true}}}});
+}
+
+function buildYearlyCharts(ya){
+  const opts={plugins:CP,scales:{x:CT(),y:{...CT(),beginAtZero:true}}};
+  if(chartMonthly)chartMonthly.destroy();
+  chartMonthly=new Chart(document.getElementById('chartMonthly'),{type:'bar',data:{labels:ya.month_labels,datasets:[{label:'รับ',data:ya.monthly_created,backgroundColor:'rgba(108,99,255,.6)',borderRadius:4},{label:'เสร็จ',data:ya.monthly_completed,backgroundColor:'rgba(16,185,129,.7)',borderRadius:4},{label:'Capacity',data:ya.monthly_capacity,type:'line',borderColor:'#f59e0b',backgroundColor:'transparent',borderDash:[4,4],pointRadius:3}]},options:opts});
+  if(chartRate)chartRate.destroy();
+  chartRate=new Chart(document.getElementById('chartRate'),{type:'line',data:{labels:ya.month_labels,datasets:[{label:'%',data:ya.monthly_rate,borderColor:'#6c63ff',backgroundColor:'rgba(108,99,255,.12)',tension:.4,fill:true}]},options:{...opts,scales:{x:CT(),y:{...CT(),beginAtZero:true,max:120}}}});
+  document.getElementById('ya-rate').textContent=ya.ytd_rate+'%';
+  document.getElementById('ya-completed').textContent=ya.total_completed;
+  document.getElementById('ya-created').textContent=ya.total_created;
+  document.getElementById('ya-workdays').textContent=ya.ytd_work_days;
+  document.getElementById('ya-capacity').textContent=ya.ytd_capacity;
+  document.getElementById('ya-lead').textContent=ya.avg_lead_days+'d';
+}
+
+/* ── Mini Calendar ── */
+let calDate = new Date();
+const TH_MONTHS=['มกราคม','กุมภาพันธ์','มีนาคม','เมษายน','พฤษภาคม','มิถุนายน','กรกฎาคม','สิงหาคม','กันยายน','ตุลาคม','พฤศจิกายน','ธันวาคม'];
+const EN_MONTHS=['January','February','March','April','May','June','July','August','September','October','November','December'];
+
+function buildCal(){
+  const lang=localStorage.getItem('lang')||'th';
+  const months=lang==='th'?TH_MONTHS:EN_MONTHS;
+  const y=calDate.getFullYear(),m=calDate.getMonth();
+  document.getElementById('calMonth').textContent=months[m]+' '+y;
+  const grid=document.getElementById('calGrid');
+  grid.innerHTML='';
+  const first=new Date(y,m,1).getDay(); // 0=Sun
+  const days=new Date(y,m+1,0).getDate();
+  const today=new Date().toISOString().split('T')[0];
+  // Prev month padding
+  for(let i=0;i<first;i++){
+    const el=document.createElement('div');
+    el.className='mc-day other-month';
+    const pd=new Date(y,m,0).getDate()-first+i+1;
+    el.textContent=pd;
+    grid.appendChild(el);
+  }
+  for(let d=1;d<=days;d++){
+    const iso=`${y}-${String(m+1).padStart(2,'0')}-${String(d).padStart(2,'0')}`;
+    const el=document.createElement('div');
+    el.className='mc-day'+(iso===today?' today':'')+(TASK_DATES[iso]?' has-task':'');
+    el.textContent=d;
+    el.onclick=()=>showDayTasks(iso,d,months[m]);
+    grid.appendChild(el);
+  }
+}
+function navCal(dir){calDate.setMonth(calDate.getMonth()+dir);buildCal();}
+function showDayTasks(iso,d,month){
+  const title=document.getElementById('dayTasksTitle');
+  title.textContent=`${d} ${month}`;
+  const list=document.getElementById('dayTasksList');
+  const tasks=TASK_DATES[iso];
+  if(tasks&&tasks.length){
+    list.innerHTML=tasks.map(t=>`<div style="padding:5px 8px;background:var(--surface2);border-radius:var(--r-sm);margin-bottom:5px;font-size:.8em;border-left:3px solid var(--accent)">📋 ${t}</div>`).join('');
+  } else {
+    list.innerHTML=`<div style="color:var(--text3);font-size:.8em">${localStorage.getItem('lang')==='en'?'No tasks on this day':'ไม่มีงานในวันนี้'}</div>`;
+  }
+}
+
+/* ── Tab switch ── */
+function switchTab(btn,name){
+  document.querySelectorAll('.tab-btn').forEach(b=>b.classList.remove('on'));
+  document.querySelectorAll('.tab-pane').forEach(p=>p.classList.remove('on'));
+  btn.classList.add('on');
+  document.getElementById('pane-'+name).classList.add('on');
+  if(name==='analytics'&&!analyticsBuilt){buildAnalyticsCharts();analyticsBuilt=true;}
+  if(name==='cal_todo'&&!calBuilt){buildCal();buildYearlyCharts(YA);calBuilt=true;}
+  location.hash=name;
+}
+window.addEventListener('DOMContentLoaded',()=>{
+  const h=location.hash.replace('#','');
+  const valid=['tasks','analytics','stamps','tickets','queue','cal_todo','slips'];
+  if(valid.includes(h)){
+    const btn=[...document.querySelectorAll('.tab-btn')].find(b=>b.getAttribute('onclick')?.includes("'"+h+"'"));
+    if(btn)switchTab(btn,h);
+  }
+});
+
+/* ── Async helpers ── */
+async function postFD(url,data){
+  const fd=new FormData();
+  Object.entries(data).forEach(([k,v])=>fd.append(k,v));
+  const r=await fetch(url,{method:'POST',body:fd});
+  if(!r.ok)throw new Error('HTTP '+r.status);
+  return r.json();
+}
+function setLoading(btn,loading){
+  if(!btn)return;
+  btn.disabled=loading;
+  btn._orig=btn._orig||btn.textContent;
+  btn.textContent=loading?'⟳...':btn._orig;
+}
+
+/* Task actions */
+async function changeStatus(tid,sel){
+  const newStatus = sel.value;
+  try{const d=await postFD('/admin/update_status',{task_id:tid,new_status:newStatus});
+    if(d.status==='ok'){
+      const labels={pending:'⏳ รอ',inprogress:'⚙️ ทำอยู่',completed:'✅ เสร็จ',cancelled:'❌ ยกเลิก'};
+      const cls={pending:'badge-amber',inprogress:'badge-blue',completed:'badge-green',cancelled:'badge-red'};
+      const ns=d.task.status;
+      const el=document.getElementById('badge-'+tid);
+      if(el){el.className='badge '+cls[ns];el.textContent=labels[ns]||ns;}
+      toast(labels[ns]||ns);
+    }
+  }catch(e){toast('Error','error');}
+}
+async function delTask(tid,title,btn){
+  if(!confirm('ลบ "'+title+'"?'))return;
+  setLoading(btn,true);
+  try{const d=await postFD('/admin/delete',{task_id:tid});
+    if(d.status==='ok'){
+      const row=document.getElementById('task-'+tid);
+      if(row){row.style.transition='.35s';row.style.opacity='0';setTimeout(()=>row.remove(),350);}
+      toast('ลบแล้ว');
+    }
+  }catch(e){toast('Error','error');setLoading(btn,false);}
+}
+
+/* Stamp */
+async function addStampManual(btn){
+  const phone=document.getElementById('stamp-phone').value.trim();
+  const name=document.getElementById('stamp-name').value.trim();
+  if(!phone){toast('กรอกเบอร์โทรก่อน','warning');return;}
+  setLoading(btn,true);
+  try{const d=await postFD('/admin/add_stamp_manual',{phone,name});
+    if(d.status==='ok'){toast('เพิ่มแสตมป์แล้ว ('+d.stamps+' ดาว)');document.getElementById('stamp-phone').value='';document.getElementById('stamp-name').value='';}
+  }catch(e){toast('Error','error');}
+  setLoading(btn,false);
+}
+async function redeemStamp(phone,btn){
+  if(!confirm('แลกรางวัล '+phone+'?'))return;
+  setLoading(btn,true);
+  try{const d=await postFD('/admin/redeem_stamp',{phone});if(d.status==='ok')toast('🎁 แลกรางวัลแล้ว');}
+  catch(e){toast('Error','error');}
+  setLoading(btn,false);
+}
+
+/* Ticket check-in */
+async function adminCheckin(btn){
+  const code=(document.getElementById('ci-code').value||'').trim().toUpperCase();
+  if(!code){toast('กรอกรหัสก่อน','warning');return;}
+  setLoading(btn,true);
+  try{const d=await postFD('/admin/checkin_ticket',{code});
+    if(d.status==='ok'){toast('✅ Check-in '+code);const el=document.getElementById('tc-'+code);if(el){el.className='badge badge-accent';el.textContent='✅ Done';}document.getElementById('ci-code').value='';}
+    else toast('ไม่พบ Ticket','warning');
+  }catch(e){toast('Error','error');}
+  setLoading(btn,false);
+}
+
+/* Queue drag */
+document.querySelectorAll('.q-row').forEach(row=>{
+  row.addEventListener('dragstart',e=>{dragSrc=e.currentTarget;dragSrc.classList.add('dragging');e.dataTransfer.effectAllowed='move';});
+  row.addEventListener('dragover',e=>{e.preventDefault();if(e.currentTarget!==dragSrc){document.querySelectorAll('.q-row').forEach(r=>r.classList.remove('drag-over'));e.currentTarget.classList.add('drag-over');}});
+  row.addEventListener('drop',e=>{e.preventDefault();const p=document.getElementById('sortable-queue');const ns=[...p.querySelectorAll('.q-row')];const si=ns.indexOf(dragSrc),ti=ns.indexOf(e.currentTarget);if(si<ti)p.insertBefore(dragSrc,e.currentTarget.nextSibling);else p.insertBefore(dragSrc,e.currentTarget);e.currentTarget.classList.remove('drag-over');saveQueueOrder();});
+  row.addEventListener('dragend',e=>{e.currentTarget.classList.remove('dragging');document.querySelectorAll('.q-row').forEach(r=>r.classList.remove('drag-over'));document.querySelectorAll('.q-num').forEach((el,i)=>el.textContent=i+1);});
+});
+let dragSrc=null;
+async function saveQueueOrder(){const ids=[...document.querySelectorAll('#sortable-queue .q-row')].map(r=>r.dataset.id);await fetch('/admin/queue/reorder',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({order:ids})});}
+async function saveEstimate(tid,btn){
+  const row=btn.closest('.q-row');const hours=row?.querySelector('[data-field="hours"]')?.value||'0';const note=row?.querySelector('[data-field="note"]')?.value||'';
+  setLoading(btn,true);try{await postFD('/admin/queue/estimate',{task_id:tid,hours,note});toast('บันทึกแล้ว');}catch(e){toast('Error','error');}setLoading(btn,false);
+}
+
+/* Todo */
+async function addTodo(){
+  const text=document.getElementById('todo-text').value.trim();
+  const prio=document.getElementById('todo-prio').value;
+  const due=document.getElementById('todo-due').value;
+  if(!text){toast('กรอกรายการก่อน','warning');return;}
+  try{
+    const d=await postFD('/admin/todos/add',{text,priority:prio,due});
+    if(d.status==='ok'){
+      const t=d.todo;
+      const list=document.getElementById('todo-list');
+      const empty=document.getElementById('todo-empty');
+      if(empty)empty.remove();
+      const div=document.createElement('div');
+      div.className='todo-item';div.id='todo-'+t.id;
+      const prioColor={high:'var(--red)',medium:'var(--amber)',low:'var(--green)'};
+      div.innerHTML=`<div style="width:4px;height:32px;border-radius:2px;flex-shrink:0;background:${prioColor[t.priority]}"></div>
+        <input type="checkbox" class="todo-cb" onchange="toggleTodo('${t.id}',this)">
+        <div class="t-body"><div class="todo-text">${t.text}</div>${t.due?`<div style="font-size:.7em;color:var(--text3)">📅 ${t.due}</div>`:''}</div>
+        <button class="btn btn-ghost btn-xs" style="color:var(--red)" onclick="deleteTodo('${t.id}',this)">✕</button>`;
+      list.insertBefore(div,list.firstChild);
+      document.getElementById('todo-text').value='';
+      document.getElementById('todo-due').value='';
+      toast('เพิ่มรายการแล้ว');
+    }
+  }catch(e){toast('Error','error');}
+}
+async function toggleTodo(tid,cb){
+  try{await postFD('/admin/todos/toggle/'+tid,{});
+    const textEl=cb.closest('.todo-item')?.querySelector('.todo-text');
+    if(textEl)textEl.classList.toggle('done',cb.checked);
+  }catch(e){toast('Error','error');}
+}
+async function deleteTodo(tid,btn){
+  setLoading(btn,true);
+  try{const d=await postFD('/admin/todos/delete/'+tid,{});
+    if(d.status==='ok'){const row=document.getElementById('todo-'+tid);if(row){row.style.transition='.3s';row.style.opacity='0';setTimeout(()=>row.remove(),300);}toast('ลบแล้ว');}
+  }catch(e){toast('Error','error');}
+  setLoading(btn,false);
+}
+
+/* Calendar year */
+async function loadYear(yr){
+  document.querySelectorAll('[id^="yr-btn-"]').forEach(b=>b.classList.remove('on'));
+  const b=document.getElementById('yr-btn-'+yr);if(b)b.classList.add('on');
+  const d=await fetch('/admin/api/yearly/'+yr).then(r=>r.json());
+  YA=d;buildYearlyCharts(d);
+}
+async function saveCalSettings(e){
+  e.preventDefault();const btn=document.getElementById('cal-save-btn');setLoading(btn,true);
+  try{const fd=new FormData(document.getElementById('cal-form'));const r=await fetch('/admin/calendar/settings',{method:'POST',body:fd});const d=await r.json();if(d.status==='ok')toast('บันทึกปฏิทินแล้ว');}
+  catch(e){toast('Error','error');}setLoading(btn,false);
+}
+async function addCalDate(e){
+  e.preventDefault();const form=document.getElementById('add-date-form');const btn=form.querySelector('button[type=submit]');
+  const ds=form.querySelector('[name=date]').value;const type=form.querySelector('[name=type]').value;const note=form.querySelector('[name=note]')?.value||'';
+  if(!ds){toast('เลือกวันที่','warning');return;}setLoading(btn,true);
+  try{const d=await postFD('/admin/calendar/add_date',{date:ds,type,note});
+    if(d.status==='ok'){toast('เพิ่มวัน '+ds);const list=document.getElementById('cal-dates-list');if(list){const icons={holiday:'🔴',off:'🟡',extra:'🟢'};const div=document.createElement('div');div.id='cd-'+ds;div.className='cal-date-row';div.innerHTML=`<span>${icons[type]||'📌'} <strong>${ds}</strong>${note?` <span style="color:var(--text3)">${note}</span>`:''}</span><button class="btn btn-ghost btn-xs" style="color:var(--red)" onclick="removeCalDate('${ds}',this)">✕</button>`;list.appendChild(div);form.reset();}}}
+  catch(e){toast('Error','error');}setLoading(btn,false);
+}
+async function removeCalDate(ds,btn){
+  setLoading(btn,true);
+  try{const d=await postFD('/admin/calendar/remove_date',{date:ds});
+    if(d.status==='ok'){const row=document.getElementById('cd-'+ds)||btn.closest('.cal-date-row');if(row){row.style.transition='.3s';row.style.opacity='0';setTimeout(()=>row.remove(),300);}toast('ลบวัน '+ds);}
+  }catch(e){toast('Error','error');}setLoading(btn,false);
+}
+
+/* Slips */
+async function verifySlip(tid,idx,action,btn){
+  const note=document.getElementById('sn-'+tid+'-'+idx)?.value||'';setLoading(btn,true);
+  try{const d=await postFD('/admin/verify_slip',{task_id:tid,slip_idx:idx,action,note});
+    if(d.status==='ok'){
+      const actDiv=btn.closest('[style*="display:flex"]');const approved=action==='approve';
+      if(actDiv)actDiv.innerHTML=approved?`<span class="badge badge-green">✅ อนุมัติ${note?' · '+note:''}</span>`:`<span class="badge badge-red">❌ ปฏิเสธ${note?' · '+note:''}</span>`;
+      // update pending badge in tab
+      const tabs=[...document.querySelectorAll('.tab-btn')];const slipTab=tabs.find(b=>b.textContent.includes('สลิป')||b.textContent.includes('Slips'));
+      if(slipTab){const badge=slipTab.querySelector('.sb-badge');if(badge){const n=(parseInt(badge.textContent)||0)-1;if(n<=0)badge.remove();else badge.textContent=n;}}
+      toast(approved?'✅ อนุมัติแล้ว':'❌ ปฏิเสธแล้ว',approved?'success':'info');
+    }
+  }catch(e){toast('Error','error');}setLoading(btn,false);
+}
+</script>
+{% endblock %}

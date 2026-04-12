@@ -1,0 +1,60 @@
+{% extends "base.html" %}
+{% block title %}ชำระเงิน{% endblock %}
+{% block topbar_title %}ชำระเงิน{% endblock %}
+{% block extra_head %}
+<style>
+.steps{display:flex;margin-bottom:22px;background:var(--surface);border:1px solid var(--border);border-radius:var(--r);overflow:hidden}
+.step{flex:1;padding:12px;text-align:center;font-size:.77em;font-weight:600;color:var(--text3);border-bottom:3px solid transparent;transition:all .2s}
+.step.done{color:var(--green);border-bottom-color:var(--green)}
+.step.on{color:var(--accent);border-bottom-color:var(--accent);background:var(--accent-lt)}
+.co-layout{display:grid;grid-template-columns:1fr 300px;gap:20px;align-items:start}
+.sum-item{display:flex;align-items:center;gap:10px;padding:8px 0;border-bottom:1px solid var(--border)}
+.sum-item:last-of-type{border:none}
+.si-img{width:38px;height:38px;border-radius:8px;background:var(--surface2);display:flex;align-items:center;justify-content:center;font-size:1.3em;overflow:hidden;flex-shrink:0}
+.si-img img{width:100%;height:100%;object-fit:cover}
+.field-row{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+.submit-btn{width:100%;margin-top:18px;padding:13px;border-radius:var(--r-sm);background:var(--accent);color:#fff;border:none;font-size:.9em;font-weight:700;cursor:pointer;transition:all .2s;display:flex;align-items:center;justify-content:center;gap:7px}
+.submit-btn:hover{background:var(--accent-d);transform:translateY(-1px);box-shadow:0 6px 18px rgba(91,94,244,.35)}
+@media(max-width:680px){.co-layout{grid-template-columns:1fr}.field-row{grid-template-columns:1fr}}
+</style>
+{% endblock %}
+{% block content %}
+<div class="steps">
+  <div class="step done">✓ ตะกร้า</div>
+  <div class="step on">📝 ข้อมูล</div>
+  <div class="step">💳 ชำระ</div>
+</div>
+<div class="co-layout">
+  <div class="card card-p">
+    <div class="sec-title" style="margin-bottom:16px">ข้อมูลการสั่งซื้อ</div>
+    <form action="/cart/checkout" method="post">
+      <div class="field"><label>ชื่อ-นามสกุล *</label><input name="name" required placeholder="สมชาย ใจดี" class="input"></div>
+      <div class="field-row">
+        <div class="field"><label>เบอร์โทร *</label><input name="phone" type="tel" required placeholder="081-234-5678" class="input"></div>
+        <div class="field"><label>อีเมล</label><input name="email" type="email" placeholder="email@mail.com" class="input"></div>
+      </div>
+      <div class="field"><label>ที่อยู่จัดส่ง</label><textarea name="address" class="input" placeholder="บ้านเลขที่, ถนน, เขต, จังหวัด, รหัสไปรษณีย์"></textarea></div>
+      <div style="font-size:.74em;color:var(--text3);text-align:center;margin-top:4px">🔒 ระบบจะสร้างออเดอร์และพาไปชำระผ่าน PromptPay</div>
+      <button type="submit" class="submit-btn">💳 สั่งซื้อ &amp; ไปชำระเงิน</button>
+    </form>
+  </div>
+
+  <div class="card card-p" style="position:sticky;top:74px">
+    <div class="sec-title" style="margin-bottom:12px">🛒 รายการ</div>
+    {% for item in items %}
+    <div class="sum-item">
+      <div class="si-img">{% if item.product.image %}<img src="/uploads/{{ item.product.image }}" alt="">{% else %}📦{% endif %}</div>
+      <div style="flex:1;min-width:0">
+        <div style="font-weight:600;font-size:.84em;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">{{ item.product.name }}</div>
+        <div style="font-size:.72em;color:var(--text3)">×{{ item.qty }}</div>
+      </div>
+      <span style="font-weight:700;font-size:.86em;font-family:var(--fm);flex-shrink:0">฿{{ "%.0f"|format(item.subtotal) }}</span>
+    </div>
+    {% endfor %}
+    <div style="display:flex;justify-content:space-between;padding:12px 0 0;font-weight:700;font-size:1.05em;border-top:2px solid var(--border);margin-top:8px">
+      <span>ยอดรวม</span><span style="color:var(--accent);font-family:var(--fm)">฿{{ "%.0f"|format(total) }}</span>
+    </div>
+    <div style="margin-top:10px;background:var(--accent-lt);border-radius:var(--r-sm);padding:8px 12px;font-size:.74em;color:var(--accent);text-align:center;font-weight:600">💳 PromptPay / โอนเงิน</div>
+  </div>
+</div>
+{% endblock %}

@@ -1,0 +1,79 @@
+{% extends "base.html" %}
+{% block title %}{{ product.name }}{% endblock %}
+{% block topbar_title %}{{ product.name }}{% endblock %}
+{% block extra_head %}
+<style>
+.bc{font-size:.76em;color:var(--text3);margin-bottom:18px;display:flex;align-items:center;gap:5px;flex-wrap:wrap}
+.bc a{color:var(--accent)}.bc a:hover{text-decoration:underline}
+.pd-grid{display:grid;grid-template-columns:1fr 1fr;gap:24px;align-items:start}
+.pd-img{background:var(--surface2);border:1px solid var(--border);border-radius:var(--r);aspect-ratio:1;display:flex;align-items:center;justify-content:center;font-size:5em;overflow:hidden}
+.pd-img img{width:100%;height:100%;object-fit:cover}
+.pd-info{display:flex;flex-direction:column;gap:0}
+.pd-cat{font-size:.7em;font-weight:600;color:var(--accent);text-transform:uppercase;letter-spacing:.5px;margin-bottom:6px}
+.pd-name{font-size:1.4em;font-weight:700;color:var(--text);margin-bottom:10px;line-height:1.3}
+.pd-price{font-size:1.8em;font-weight:700;color:var(--text);font-family:var(--fm);margin-bottom:14px}
+.pd-desc{font-size:.85em;color:var(--text2);line-height:1.7;background:var(--surface2);border-radius:var(--r-sm);padding:12px 14px;margin-bottom:14px}
+.qty-row{display:flex;align-items:center;gap:10px;margin-bottom:18px}
+.qty-row label{font-size:.8em;font-weight:600;color:var(--text2)}
+.qty-btn{width:32px;height:32px;border-radius:var(--r-sm);border:1.5px solid var(--border);background:var(--surface);color:var(--text);font-size:1em;font-weight:700;cursor:pointer;display:flex;align-items:center;justify-content:center;transition:all .18s}
+.qty-btn:hover{border-color:var(--accent);background:var(--accent-lt);color:var(--accent)}
+.qty-input{width:50px;text-align:center;border:1.5px solid var(--border);border-radius:var(--r-sm);padding:6px;font-size:.88em;font-weight:700;background:var(--surface);color:var(--text)}
+.pd-actions{display:flex;gap:10px;flex-wrap:wrap}
+.pd-actions .btn{flex:1;justify-content:center;padding:11px}
+@media(max-width:680px){.pd-grid{grid-template-columns:1fr}}
+</style>
+{% endblock %}
+{% block content %}
+<div class="bc">
+  <a href="/catalog">สินค้าทั้งหมด</a> ›
+  {% if product.category %}<a href="/catalog?cat={{ product.category }}">{{ product.category }}</a> ›{% endif %}
+  <span>{{ product.name }}</span>
+</div>
+<div class="pd-grid">
+  <div class="pd-img">
+    {% if product.image %}<img src="/uploads/{{ product.image }}" alt="{{ product.name }}">{% else %}📦{% endif %}
+  </div>
+  <div class="card card-p">
+    {% if product.category %}<div class="pd-cat">{{ product.category }}</div>{% endif %}
+    <div class="pd-name">{{ product.name }}</div>
+    <div class="pd-price">฿{{ "%.0f"|format(product.price) }}</div>
+    {% if product.description %}<div class="pd-desc">{{ product.description }}</div>{% endif %}
+    {% if product.stock == 0 %}<div class="badge badge-red" style="margin-bottom:14px">❌ สินค้าหมด</div>
+    {% elif product.stock and product.stock <= 5 %}<div class="badge badge-amber" style="margin-bottom:14px">⚠️ เหลือ {{ product.stock }} ชิ้น</div>
+    {% elif product.stock %}<div class="badge badge-green" style="margin-bottom:14px">✅ มีสินค้า {{ product.stock }} ชิ้น</div>
+    {% else %}<div class="badge badge-green" style="margin-bottom:14px">✅ มีสินค้าพร้อมส่ง</div>{% endif %}
+    <div class="qty-row">
+      <label>จำนวน</label>
+      <button class="qty-btn" onclick="changeQty(-1)">−</button>
+      <input type="number" id="qty" class="qty-input" value="1" min="1" max="{{ product.stock or 999 }}">
+      <button class="qty-btn" onclick="changeQty(1)">+</button>
+    </div>
+    <div class="pd-actions">
+      <form id="addForm" action="/cart/add" method="post">
+        <input type="hidden" name="product_id" value="{{ product.id }}">
+        <input type="hidden" name="qty" id="addQty" value="1">
+        <input type="hidden" name="back" value="/product/{{ product.id }}">
+        <button type="submit" class="btn btn-primary" style="padding:11px 20px" {% if product.stock==0 %}disabled{% endif %}>🛒 ใส่ตะกร้า</button>
+      </form>
+      <form id="buyForm" action="/cart/add" method="post">
+        <input type="hidden" name="product_id" value="{{ product.id }}">
+        <input type="hidden" name="qty" id="buyQty" value="1">
+        <input type="hidden" name="buy_now" value="1">
+        <button type="submit" class="btn btn-success" style="padding:11px 20px" {% if product.stock==0 %}disabled{% endif %}>⚡ ซื้อเลย</button>
+      </form>
+    </div>
+  </div>
+</div>
+<script>
+function changeQty(d){
+  const i=document.getElementById('qty'),mx=parseInt(i.max)||999;
+  i.value=Math.max(1,Math.min(mx,parseInt(i.value)+d));
+  document.getElementById('addQty').value=i.value;
+  document.getElementById('buyQty').value=i.value;
+}
+document.getElementById('qty').addEventListener('change',function(){
+  document.getElementById('addQty').value=this.value;
+  document.getElementById('buyQty').value=this.value;
+});
+</script>
+{% endblock %}

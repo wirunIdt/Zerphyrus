@@ -1,0 +1,11 @@
+{
+  "work_days_of_week": [
+    0,
+    1,
+    2,
+    3,
+    4
+  ],
+  "capacity_per_day": 3,
+  "custom_dates": {}
+}

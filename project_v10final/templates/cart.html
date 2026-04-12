@@ -1,0 +1,136 @@
+{% extends "base.html" %}
+{% block title %}ตะกร้าสินค้า{% endblock %}
+{% block topbar_title %}<span data-th="🛒 ตะกร้าสินค้า" data-en="🛒 Cart">🛒 ตะกร้าสินค้า</span>{% endblock %}
+{% block extra_head %}
+<style>
+.cart-layout{display:grid;grid-template-columns:1fr 300px;gap:20px;align-items:start}
+.cart-img{width:52px;height:52px;border-radius:10px;object-fit:cover;background:var(--surface2);display:flex;align-items:center;justify-content:center;font-size:1.6em;overflow:hidden;flex-shrink:0}
+.cart-img img{width:100%;height:100%;object-fit:cover}
+.qty-ctrl{display:inline-flex;align-items:center;gap:5px;background:var(--surface2);border:1px solid var(--border);border-radius:8px;padding:3px}
+.qbtn{width:26px;height:26px;border-radius:6px;border:none;background:transparent;color:var(--text);font-weight:700;cursor:pointer;display:flex;align-items:center;justify-content:center;font-size:.95em;transition:all .15s;line-height:1}
+.qbtn:hover:not(:disabled){background:var(--accent-lt);color:var(--accent)}
+.qbtn:disabled{opacity:.3;cursor:not-allowed}
+.qval{width:30px;text-align:center;font-weight:700;font-size:.86em;color:var(--text);background:transparent;border:none;outline:none;font-family:var(--fm)}
+.stock-tag{font-size:.66em;color:var(--text3);margin-top:2px;white-space:nowrap}
+.stock-tag.low{color:var(--amber)}
+.stock-tag.out{color:var(--red)}
+.sum-row{display:flex;justify-content:space-between;padding:7px 0;font-size:.83em;border-bottom:1px solid var(--border2)}
+.sum-row:last-of-type{border:none}
+.sum-total{display:flex;justify-content:space-between;padding:12px 0 0;font-size:1.1em;font-weight:700;color:var(--text);margin-top:4px;border-top:2px solid var(--border)}
+@media(max-width:760px){.cart-layout{grid-template-columns:1fr}}
+</style>
+{% endblock %}
+{% block content %}
+{% if items %}
+<div class="cart-layout">
+  <div>
+    <div class="card" style="overflow:hidden">
+      <div style="padding:14px 20px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between">
+        <div class="sec-title" data-th="รายการสินค้า" data-en="Cart Items">รายการสินค้า</div>
+        <a href="/catalog" class="btn btn-ghost btn-sm" data-th="← ช้อปต่อ" data-en="← Continue">← ช้อปต่อ</a>
+      </div>
+      <table class="data-table">
+        <thead>
+          <tr>
+            <th data-th="สินค้า" data-en="Product">สินค้า</th>
+            <th data-th="ราคา" data-en="Price">ราคา</th>
+            <th data-th="จำนวน" data-en="Qty">จำนวน</th>
+            <th data-th="รวม" data-en="Total">รวม</th>
+            <th></th>
+          </tr>
+        </thead>
+        <tbody>
+        {% for item in items %}
+        {% set stock = item.product.stock %}
+        {% set at_max = stock is not none and item.qty >= stock %}
+        <tr id="row-{{ item.product_id }}">
+          <td>
+            <div style="display:flex;align-items:center;gap:12px">
+              <div class="cart-img">
+                {% if item.product.image %}<img src="/uploads/{{ item.product.image }}" alt="">{% else %}📦{% endif %}
+              </div>
+              <div>
+                <div style="font-weight:600;font-size:.88em">{{ item.product.name }}</div>
+                {% if item.product.category %}<div style="font-size:.72em;color:var(--text3)">{{ item.product.category }}</div>{% endif %}
+                {%- if stock is not none -%}
+                  {%- if stock == 0 -%}
+                    <div class="stock-tag out" data-th="หมดสต็อก" data-en="Out of stock">หมดสต็อก</div>
+                  {%- elif stock <= 5 -%}
+                    <div class="stock-tag low">⚠️ <span data-th="เหลือ {{ stock }} ชิ้น" data-en="{{ stock }} left">เหลือ {{ stock }} ชิ้น</span></div>
+                  {%- else -%}
+                    <div class="stock-tag">🏷️ <span data-th="สต็อก {{ stock }}" data-en="Stock {{ stock }}">สต็อก {{ stock }}</span></div>
+                  {%- endif -%}
+                {%- endif -%}
+              </div>
+            </div>
+          </td>
+          <td style="font-weight:600;color:var(--text);font-family:var(--fm);white-space:nowrap">฿{{ "%.0f"|format(item.product.price) }}</td>
+          <td>
+            <div class="qty-ctrl">
+              <!-- Minus -->
+              <form action="/cart/update" method="post" style="display:contents">
+                <input type="hidden" name="product_id" value="{{ item.product_id }}">
+                <button type="submit" name="qty" value="{{ item.qty - 1 }}" class="qbtn"
+                        {% if item.qty <= 1 %}title="ลบออกจากตะกร้า"{% endif %}>−</button>
+              </form>
+
+              <span class="qval" id="qty-{{ item.product_id }}">{{ item.qty }}</span>
+
+              <!-- Plus — disabled when at max stock -->
+              <form action="/cart/update" method="post" style="display:contents">
+                <input type="hidden" name="product_id" value="{{ item.product_id }}">
+                <button type="submit" name="qty" value="{{ item.qty + 1 }}" class="qbtn"
+                        {% if at_max %}disabled title="ถึงจำนวนสูงสุดแล้ว ({{ stock }} ชิ้น)"{% endif %}>+</button>
+              </form>
+            </div>
+            {% if at_max %}
+            <div style="font-size:.65em;color:var(--amber);margin-top:3px;text-align:center">
+              <span data-th="สูงสุด {{ stock }}" data-en="Max {{ stock }}">สูงสุด {{ stock }}</span>
+            </div>
+            {% endif %}
+          </td>
+          <td style="font-weight:700;color:var(--text);font-family:var(--fm);white-space:nowrap">฿{{ "%.0f"|format(item.subtotal) }}</td>
+          <td>
+            <form action="/cart/remove" method="post">
+              <input type="hidden" name="product_id" value="{{ item.product_id }}">
+              <button type="submit" class="btn btn-ghost btn-xs" style="color:var(--red)" title="ลบ">🗑</button>
+            </form>
+          </td>
+        </tr>
+        {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- Summary -->
+  <div class="card card-p" style="position:sticky;top:70px">
+    <div class="sec-title" style="margin-bottom:14px" data-th="สรุปออเดอร์" data-en="Order Summary">สรุปออเดอร์</div>
+    {% for item in items %}
+    <div class="sum-row">
+      <span style="color:var(--text2)">{{ item.product.name }} ×{{ item.qty }}</span>
+      <span style="font-weight:600">฿{{ "%.0f"|format(item.subtotal) }}</span>
+    </div>
+    {% endfor %}
+    <div class="sum-total">
+      <span data-th="ยอดรวม" data-en="Total">ยอดรวม</span>
+      <span style="color:var(--accent);font-family:var(--fm)">฿{{ "%.0f"|format(total) }}</span>
+    </div>
+    <a href="/cart/checkout" class="btn btn-primary" style="width:100%;justify-content:center;margin-top:16px;padding:11px">
+      <span data-th="✅ สั่งซื้อ & ชำระ" data-en="✅ Checkout & Pay">✅ สั่งซื้อ & ชำระ</span>
+    </a>
+    <div style="text-align:center;font-size:.71em;color:var(--text3);margin-top:8px">
+      🔒 <span data-th="ชำระผ่าน PromptPay" data-en="Pay via PromptPay">ชำระผ่าน PromptPay</span>
+    </div>
+  </div>
+</div>
+
+{% else %}
+<div style="text-align:center;padding:80px 20px;color:var(--text3)">
+  <div style="font-size:4em;opacity:.25;margin-bottom:16px">🛒</div>
+  <p style="font-size:1em;font-weight:600;color:var(--text);margin-bottom:8px" data-th="ตะกร้าว่างเปล่า" data-en="Your cart is empty">ตะกร้าว่างเปล่า</p>
+  <p style="margin-bottom:20px;font-size:.84em" data-th="เพิ่มสินค้าที่ต้องการก่อน" data-en="Add some products first">เพิ่มสินค้าที่ต้องการก่อน</p>
+  <a href="/catalog" class="btn btn-primary" data-th="🛍️ เลือกสินค้า" data-en="🛍️ Shop Now">🛍️ เลือกสินค้า</a>
+</div>
+{% endif %}
+{% endblock %}

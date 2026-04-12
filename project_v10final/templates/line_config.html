@@ -1,0 +1,166 @@
+{% extends "base.html" %}
+{% block title %}ตั้งค่า LINE{% endblock %}
+{% block topbar_title %}ตั้งค่า LINE & PromptPay{% endblock %}
+{% block extra_head %}
+<style>
+.lc-wrap{max-width:700px}
+.field-row{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+.qr-pick-box{width:180px;height:180px;border-radius:var(--r);border:2px dashed var(--border);background:var(--surface2);display:flex;align-items:center;justify-content:center;font-size:3em;cursor:pointer;overflow:hidden;transition:border-color .2s;flex-shrink:0}
+.qr-pick-box:hover{border-color:var(--accent)}
+.qr-pick-box img{width:100%;height:100%;object-fit:contain}
+@media(max-width:520px){.field-row{grid-template-columns:1fr}}
+</style>
+{% endblock %}
+{% block content %}
+<div class="lc-wrap">
+
+  {% if msg %}
+  <div class="card card-p" style="margin-bottom:14px;background:var(--green-lt);border:1px solid var(--green)">
+    <span style="color:var(--green);font-weight:600">✅ {{ msg }}</span>
+  </div>
+  {% endif %}
+  {% if qr_saved %}
+  <div class="card card-p" style="margin-bottom:14px;background:var(--green-lt);border:1px solid var(--green)">
+    <span style="color:var(--green);font-weight:600">✅ อัปโหลด QR Code เรียบร้อย</span>
+  </div>
+  {% endif %}
+
+  <!-- QR Code Section -->
+  <div class="card card-p" style="margin-bottom:14px">
+    <div class="sec-title" style="margin-bottom:4px">💳 QR Code PromptPay</div>
+    <div style="font-size:.78em;color:var(--text3);margin-bottom:14px">
+      อัปโหลดรูป QR PromptPay ของคุณ — ลูกค้าจะเห็นรูปนี้เมื่อชำระเงิน
+    </div>
+    <div style="display:flex;gap:16px;align-items:flex-start;flex-wrap:wrap">
+      <div class="qr-pick-box" id="qrPickBox" onclick="document.getElementById('qrInput').click()">
+        {% if qr_image %}
+          <img src="/uploads/{{ qr_image }}?t={{ range(9999)|random }}" alt="QR">
+        {% else %}
+          📷
+        {% endif %}
+      </div>
+      <div style="flex:1;min-width:200px">
+        <div style="font-weight:600;font-size:.88em;margin-bottom:6px">
+          {% if qr_image %}✅ มี QR Code แล้ว{% else %}⚠️ ยังไม่มี QR Code{% endif %}
+        </div>
+        <div style="font-size:.78em;color:var(--text3);line-height:1.7;margin-bottom:12px">
+          1. เปิดแอปธนาคาร → PromptPay → สร้าง/บันทึก QR รับเงิน<br>
+          2. คลิกกรอบซ้าย หรือปุ่มด้านล่าง เพื่อเลือกไฟล์<br>
+          3. ระบบจะ preview และอัปโหลดอัตโนมัติ
+        </div>
+        <form action="/admin/upload_qr" method="post" enctype="multipart/form-data" id="qrForm">
+          <input type="file" id="qrInput" name="qr" accept="image/*" style="display:none" onchange="doUploadQR(this)">
+          <div style="display:flex;gap:8px;flex-wrap:wrap">
+            <button type="button" id="qrUploadBtn" class="btn btn-primary btn-sm" onclick="document.getElementById('qrInput').click()">
+              📁 เลือก & อัปโหลด QR
+            </button>
+            {% if qr_image %}
+            <form action="/admin/delete_qr" method="post" style="display:contents">
+              <button type="submit" class="btn btn-ghost btn-sm" style="color:var(--red)"
+                      onclick="return confirm('ลบ QR Code?')">🗑 ลบ QR</button>
+            </form>
+            {% endif %}
+          </div>
+        </form>
+      </div>
+    </div>
+  </div>
+
+  <!-- Config form -->
+  <form method="post" action="/admin/line_config">
+    <div class="card card-p" style="margin-bottom:14px">
+      <div class="sec-title" style="margin-bottom:14px">💬 LINE Bot</div>
+      <div class="field">
+        <label>LINE Channel Access Token</label>
+        <input name="LINE_CHANNEL_ACCESS_TOKEN" value="{{ token }}" class="input" placeholder="Channel Access Token">
+      </div>
+      <div class="field">
+        <label>LINE Admin User ID</label>
+        <input name="ADMIN_LINE_USER_ID" value="{{ admin_id }}" class="input" placeholder="UID ของ Admin">
+      </div>
+    </div>
+
+    <div class="card card-p" style="margin-bottom:14px">
+      <div class="sec-title" style="margin-bottom:14px">💳 PromptPay & ร้านค้า</div>
+      <div class="field-row">
+        <div class="field">
+          <label>เบอร์ PromptPay / เลขบัตรประชาชน</label>
+          <input name="PROMPTPAY_PHONE" value="{{ promptpay }}" class="input" placeholder="081-234-5678 หรือ 13 หลัก">
+        </div>
+        <div class="field">
+          <label>ชื่อร้าน / บริษัท</label>
+          <input name="COMPANY_NAME" value="{{ company }}" class="input" placeholder="ชื่อร้านค้า">
+        </div>
+      </div>
+    </div>
+
+    <div class="card card-p" style="margin-bottom:14px">
+      <div class="sec-title" style="margin-bottom:14px">🔒 HTTPS & Webhook</div>
+      {% if webhook_url %}
+      <div style="font-size:.78em;background:var(--surface2);border-radius:var(--r-sm);padding:10px 14px;margin-bottom:14px;font-family:var(--fm);word-break:break-all;color:var(--text)">
+        Webhook URL: <strong>{{ webhook_url }}/webhook</strong>
+      </div>
+      {% endif %}
+      <div class="field-row">
+        <div class="field">
+          <label>โปรโตคอล</label>
+          <select name="PREFERRED_SCHEME" class="input">
+            <option value="http" {% if scheme=='http' %}selected{% endif %}>HTTP</option>
+            <option value="https" {% if scheme=='https' %}selected{% endif %}>HTTPS</option>
+          </select>
+        </div>
+        <div class="field">
+          <label>External URL (ngrok/domain)</label>
+          <input name="EXTERNAL_URL" value="{{ webhook_url or '' }}" class="input" placeholder="https://xxxx.ngrok.io">
+        </div>
+      </div>
+    </div>
+
+    <button type="submit" class="btn btn-primary" style="padding:11px 28px">💾 บันทึกการตั้งค่า</button>
+  </form>
+</div>
+
+<script>
+async function doUploadQR(input) {
+  if (!input.files[0]) return;
+  const file = input.files[0];
+
+  // 1. Instant preview
+  const reader = new FileReader();
+  reader.onload = e => {
+    document.getElementById('qrPickBox').innerHTML =
+      `<img src="${e.target.result}" alt="QR" style="width:100%;height:100%;object-fit:contain">`;
+  };
+  reader.readAsDataURL(file);
+
+  // 2. Upload via AJAX (no page reload)
+  const btn = document.getElementById('qrUploadBtn');
+  if(btn){ btn.disabled=true; btn.textContent='⟳ กำลังอัปโหลด...'; }
+
+  try {
+    const fd = new FormData();
+    fd.append('qr', file);
+    const resp = await fetch('/admin/upload_qr', { method:'POST', body:fd });
+    if (resp.ok || resp.redirected) {
+      // Show success inline without reload
+      let statusEl = document.getElementById('qrStatus');
+      if (!statusEl) {
+        statusEl = document.createElement('div');
+        statusEl.id = 'qrStatus';
+        statusEl.style.cssText = 'margin-top:10px';
+        document.getElementById('qrPickBox').closest('div').parentNode.appendChild(statusEl);
+      }
+      statusEl.innerHTML = '<span class="badge badge-green">✅ อัปโหลด QR Code สำเร็จ</span>';
+      if(btn){ btn.disabled=false; btn.textContent='📤 อัปโหลด'; }
+    } else {
+      throw new Error('Upload failed: ' + resp.status);
+    }
+  } catch(err) {
+    console.error(err);
+    if(btn){ btn.disabled=false; btn.textContent='📤 อัปโหลด'; }
+    // Fallback: regular form submit
+    document.getElementById('qrForm').submit();
+  }
+}
+</script>
+{% endblock %}

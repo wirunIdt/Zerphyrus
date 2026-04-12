@@ -1,0 +1,268 @@
+{% extends "base.html" %}
+{% block title %}จัดการสินค้า{% endblock %}
+{% block topbar_title %}จัดการสินค้า{% endblock %}
+{% block extra_head %}
+<style>
+.ap-stats{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:20px}
+.prod-img-th{width:44px;height:44px;border-radius:8px;background:var(--surface2);display:flex;align-items:center;justify-content:center;font-size:1.4em;overflow:hidden;flex-shrink:0}
+.prod-img-th img{width:100%;height:100%;object-fit:cover}
+.toggle-sw{position:relative;display:inline-block;width:38px;height:20px;cursor:pointer;flex-shrink:0}
+.toggle-sw input{display:none}
+.sw-track{position:absolute;inset:0;background:var(--border);border-radius:20px;transition:.25s}
+.sw-track::after{content:'';position:absolute;top:2px;left:2px;width:16px;height:16px;background:#fff;border-radius:50%;transition:.25s}
+.toggle-sw input:checked+.sw-track{background:var(--green)}
+.toggle-sw input:checked+.sw-track::after{transform:translateX(18px)}
+/* Modal */
+.modal-bg{display:none;position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:500;align-items:center;justify-content:center;backdrop-filter:blur(4px)}
+.modal-bg.open{display:flex}
+.modal{background:var(--surface);border:1px solid var(--border);border-radius:var(--r);padding:22px;width:100%;max-width:500px;max-height:92vh;overflow-y:auto;box-shadow:var(--sh-lg)}
+.modal-title{font-size:1em;font-weight:700;color:var(--text);margin-bottom:16px;padding-bottom:10px;border-bottom:1px solid var(--border)}
+.field-row{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+.img-pick{width:70px;height:70px;border-radius:10px;background:var(--surface2);border:2px dashed var(--border);display:flex;align-items:center;justify-content:center;font-size:1.8em;cursor:pointer;overflow:hidden;transition:border-color .18s;flex-shrink:0}
+.img-pick:hover{border-color:var(--accent)}
+.img-pick img{width:100%;height:100%;object-fit:cover}
+@media(max-width:520px){.ap-stats{grid-template-columns:1fr 1fr}.field-row{grid-template-columns:1fr}}
+</style>
+{% endblock %}
+{% block content %}
+<!-- Stats -->
+<div class="ap-stats">
+  <div class="card stat-card">
+    <div class="stat-label">สินค้าทั้งหมด <div class="stat-icon" style="background:var(--accent-lt)">📦</div></div>
+    <div class="stat-value">{{ products|length }}</div>
+  </div>
+  <div class="card stat-card">
+    <div class="stat-label">เปิดขาย <div class="stat-icon" style="background:var(--green-lt)">✅</div></div>
+    <div class="stat-value" style="color:var(--green)">{{ products|selectattr('active')|list|length }}</div>
+  </div>
+  <div class="card stat-card">
+    <div class="stat-label">ปิดขาย <div class="stat-icon" style="background:var(--red-lt)">🚫</div></div>
+    <div class="stat-value" style="color:var(--red)">{{ products|rejectattr('active')|list|length }}</div>
+  </div>
+  <div class="card stat-card">
+    <div class="stat-label">หมดสต็อก <div class="stat-icon" style="background:var(--amber-lt)">⚠️</div></div>
+    <div class="stat-value" style="color:var(--amber)">{{ products|selectattr('stock','equalto',0)|list|length }}</div>
+  </div>
+</div>
+
+<!-- Table -->
+<div class="card" style="overflow:hidden">
+  <div style="padding:13px 18px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between">
+    <div class="sec-title">รายการสินค้า</div>
+    <button class="btn btn-primary btn-sm" onclick="openAdd()">➕ เพิ่มสินค้า</button>
+  </div>
+  <table class="data-table">
+    <thead><tr><th style="width:52px"></th><th>สินค้า</th><th>หมวดหมู่</th><th>ราคา</th><th>สต็อก</th><th>สถานะ</th><th>จัดการ</th></tr></thead>
+    <tbody>
+    {% for p in products %}
+    <tr id="row-{{ p.id }}">
+      <td>
+        <div class="prod-img-th">
+          {% if p.image %}<img src="/uploads/{{ p.image }}" alt="" onerror="this.parentElement.innerHTML='📦'">{% else %}📦{% endif %}
+        </div>
+      </td>
+      <td>
+        <div style="font-weight:600;font-size:.87em">{{ p.name }}</div>
+        {% if p.description %}<div style="font-size:.73em;color:var(--text3)">{{ p.description[:50] }}{% if p.description|length>50 %}…{% endif %}</div>{% endif %}
+      </td>
+      <td><span class="badge badge-accent" style="font-size:.68em">{{ p.category or '—' }}</span></td>
+      <td style="font-family:var(--fm);font-weight:600;font-size:.86em">฿{{ "%.0f"|format(p.price) }}</td>
+      <td>
+        {% if p.stock == 0 %}<span class="badge badge-red">หมด</span>
+        {% elif p.stock and p.stock <= 5 %}<span style="color:var(--amber);font-weight:700;font-size:.86em">{{ p.stock }}</span>
+        {% elif p.stock %}<span style="font-size:.86em">{{ p.stock }}</span>
+        {% else %}<span style="color:var(--text3);font-size:.82em">—</span>{% endif %}
+      </td>
+      <td>
+        <label class="toggle-sw">
+          <input type="checkbox" {% if p.active %}checked{% endif %} onchange="toggleProd('{{ p.id }}',this)">
+          <span class="sw-track"></span>
+        </label>
+      </td>
+      <td>
+        <div style="display:flex;gap:5px">
+          <!-- Store data in data-* attrs to avoid JSON-in-onclick quoting issues -->
+          <button class="btn btn-ghost btn-xs edit-btn"
+            data-id="{{ p.id }}"
+            data-name="{{ p.name|e }}"
+            data-description="{{ (p.description or '')|e }}"
+            data-price="{{ p.price }}"
+            data-stock="{{ p.stock if p.stock is not none else '' }}"
+            data-category="{{ (p.category or '')|e }}"
+            data-active="{{ 'true' if p.active else 'false' }}"
+            data-image="{{ p.image or '' }}"
+            onclick="openEdit(this)">✏️ แก้ไข</button>
+          <button class="btn btn-ghost btn-xs" style="color:var(--red)" onclick="deleteProd('{{ p.id }}','{{ p.name|e }}',this)">🗑</button>
+        </div>
+      </td>
+    </tr>
+    {% else %}
+    <tr><td colspan="7" style="text-align:center;padding:40px;color:var(--text3)">
+      ยังไม่มีสินค้า — <a href="#" onclick="openAdd();return false" style="color:var(--accent)">เพิ่มสินค้าแรก</a>
+    </td></tr>
+    {% endfor %}
+    </tbody>
+  </table>
+</div>
+
+<!-- Modal -->
+<div class="modal-bg" id="prodModal">
+  <div class="modal">
+    <div class="modal-title" id="modalTitle">➕ เพิ่มสินค้าใหม่</div>
+    <form id="prodForm" enctype="multipart/form-data">
+      <input type="hidden" id="editId" value="">
+      <!-- Image picker -->
+      <div style="display:flex;align-items:center;gap:14px;margin-bottom:16px">
+        <div class="img-pick" id="imgPick" onclick="document.getElementById('imgInput').click()">
+          <span id="imgIcon">📦</span>
+        </div>
+        <div>
+          <div style="font-size:.82em;font-weight:600;color:var(--text);margin-bottom:3px">รูปสินค้า</div>
+          <div style="font-size:.72em;color:var(--text3);margin-bottom:6px">คลิกเพื่อเลือก PNG, JPG, WEBP</div>
+          <input type="file" id="imgInput" name="image" accept="image/*" style="display:none" onchange="previewImg(this)">
+          <button type="button" class="btn btn-secondary btn-xs" onclick="document.getElementById('imgInput').click()">📁 เลือกรูป</button>
+        </div>
+      </div>
+      <!-- Fields -->
+      <div class="field"><label>ชื่อสินค้า *</label><input type="text" name="name" id="fn" required placeholder="ชื่อสินค้า" class="input"></div>
+      <div class="field"><label>คำอธิบาย</label><textarea name="description" id="fd" class="input" placeholder="รายละเอียดสินค้า..."></textarea></div>
+      <div class="field-row">
+        <div class="field"><label>ราคา (บาท) *</label><input type="number" name="price" id="fp" required min="0" step="0.01" class="input" placeholder="0"></div>
+        <div class="field"><label>สต็อก</label><input type="number" name="stock" id="fs" min="0" class="input" placeholder="ว่างไว้=ไม่จำกัด"></div>
+      </div>
+      <div class="field"><label>หมวดหมู่</label><input type="text" name="category" id="fc" class="input" placeholder="เช่น เสื้อผ้า, อาหาร, ของใช้"></div>
+      <div style="display:flex;align-items:center;gap:10px;margin-bottom:16px">
+        <label class="toggle-sw"><input type="checkbox" id="fa" checked><span class="sw-track"></span></label>
+        <span style="font-size:.84em;font-weight:500;color:var(--text)">เปิดขาย</span>
+      </div>
+      <div style="display:flex;gap:8px;justify-content:flex-end;border-top:1px solid var(--border);padding-top:14px">
+        <button type="button" class="btn btn-ghost" onclick="closeModal()">ยกเลิก</button>
+        <button type="submit" class="btn btn-primary" id="saveBtn">💾 บันทึก</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<script>
+/* ── Modal open/close ── */
+function openAdd() {
+  document.getElementById('editId').value = '';
+  document.getElementById('modalTitle').textContent = '➕ เพิ่มสินค้าใหม่';
+  document.getElementById('prodForm').reset();
+  document.getElementById('imgPick').innerHTML = '<span id="imgIcon">📦</span>';
+  document.getElementById('fa').checked = true;
+  document.getElementById('prodModal').classList.add('open');
+}
+
+function openEdit(btn) {
+  const d = btn.dataset;
+  document.getElementById('editId').value       = d.id;
+  document.getElementById('modalTitle').textContent = '✏️ แก้ไขสินค้า';
+  document.getElementById('fn').value           = d.name || '';
+  document.getElementById('fd').value           = d.description || '';
+  document.getElementById('fp').value           = d.price || '';
+  document.getElementById('fs').value           = d.stock || '';
+  document.getElementById('fc').value           = d.category || '';
+  document.getElementById('fa').checked         = d.active === 'true';
+
+  const pick = document.getElementById('imgPick');
+  if (d.image) {
+    pick.innerHTML = `<img src="/uploads/${d.image}?t=${Date.now()}" alt="" style="width:100%;height:100%;object-fit:cover">`;
+  } else {
+    pick.innerHTML = '<span id="imgIcon">📦</span>';
+  }
+
+  document.getElementById('prodModal').classList.add('open');
+}
+
+function closeModal() {
+  document.getElementById('prodModal').classList.remove('open');
+}
+
+// Close when click outside
+document.getElementById('prodModal').addEventListener('click', function(e) {
+  if (e.target === this) closeModal();
+});
+
+/* ── Image preview ── */
+function previewImg(input) {
+  if (!input.files[0]) return;
+  const r = new FileReader();
+  r.onload = e => {
+    document.getElementById('imgPick').innerHTML =
+      `<img src="${e.target.result}" alt="" style="width:100%;height:100%;object-fit:cover">`;
+  };
+  r.readAsDataURL(input.files[0]);
+}
+
+/* ── Form submit ── */
+document.getElementById('prodForm').addEventListener('submit', async function(e) {
+  e.preventDefault();
+  const eid = document.getElementById('editId').value.trim();
+  const url = eid ? `/admin/products/edit/${eid}` : '/admin/products/add';
+  const btn = document.getElementById('saveBtn');
+  btn.disabled = true;
+  btn.textContent = '⟳ กำลังบันทึก...';
+
+  try {
+    const fd = new FormData(this);
+    // Always set active explicitly
+    fd.set('active', document.getElementById('fa').checked ? 'on' : 'off');
+
+    const resp = await fetch(url, { method: 'POST', body: fd });
+    const data = await resp.json();
+
+    if (data.status === 'ok') {
+      toast(eid ? `✅ อัปเดต "${data.name||''}" แล้ว` : `✅ เพิ่ม "${data.name}" แล้ว`);
+      closeModal();
+      setTimeout(() => location.reload(), 800);
+    } else {
+      toast(data.error || 'เกิดข้อผิดพลาด', 'error');
+    }
+  } catch (err) {
+    toast('Error: ' + err.message, 'error');
+  }
+
+  btn.disabled = false;
+  btn.textContent = '💾 บันทึก';
+});
+
+/* ── Toggle active ── */
+async function toggleProd(pid, cb) {
+  try {
+    const r = await fetch(`/admin/products/toggle/${pid}`, { method: 'POST' });
+    const d = await r.json();
+    if (d.status === 'ok') {
+      toast(cb.checked ? '✅ เปิดขายแล้ว' : '🚫 ปิดขายแล้ว');
+    } else {
+      cb.checked = !cb.checked;
+      toast('เกิดข้อผิดพลาด', 'error');
+    }
+  } catch {
+    cb.checked = !cb.checked;
+    toast('เกิดข้อผิดพลาด', 'error');
+  }
+}
+
+/* ── Delete ── */
+async function deleteProd(pid, name, btn) {
+  if (!confirm(`ลบ "${name}" ?`)) return;
+  btn.disabled = true;
+  try {
+    const r = await fetch(`/admin/products/delete/${pid}`, { method: 'POST' });
+    const d = await r.json();
+    if (d.status === 'ok') {
+      const row = document.getElementById(`row-${pid}`);
+      if (row) { row.style.transition = '.3s'; row.style.opacity = '0'; setTimeout(() => row.remove(), 300); }
+      toast(`🗑 ลบ "${name}" แล้ว`);
+    } else {
+      btn.disabled = false;
+      toast('ลบไม่ได้', 'error');
+    }
+  } catch {
+    btn.disabled = false;
+    toast('เกิดข้อผิดพลาด', 'error');
+  }
+}
+</script>
+{% endblock %}
