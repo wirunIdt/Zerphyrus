@@ -1,28 +1,99 @@
 {% extends "base.html" %}
-{% block title %}Ticket {{ ticket.sn }}{% endblock %}
-{% block topbar_title %}ข้อมูล Ticket{% endblock %}
+{% block title %}Ticket{% endblock %}
+{% block topbar_title %}<span data-th="🎟️ ข้อมูล Ticket" data-en="🎟️ Ticket Info">🎟️ ข้อมูล Ticket</span>{% endblock %}
 {% block content %}
 <div style="max-width:540px;margin:0 auto">
+{% if error or not ticket %}
+  <div class="card card-p" style="text-align:center;padding:50px">
+    <div style="font-size:3em;opacity:.3;margin-bottom:12px">🎟️</div>
+    <p style="font-weight:700;color:var(--text)" data-th="ไม่พบ Ticket" data-en="Ticket Not Found">ไม่พบ Ticket</p>
+    <p style="font-size:.82em;color:var(--text3);margin-top:5px">รหัส: {{ code }}</p>
+    <a href="/checkin" class="btn btn-ghost btn-sm" style="margin-top:14px" data-th="← กลับ" data-en="← Back">← กลับ</a>
+  </div>
+{% else %}
+  {# ─── FIX 5: Use correct ticket field names ───
+     ticket object: task_id, customer_name, customer_phone, task_title, status, created_at, checked_in_at
+     task object (if found): sn, title, priority, deadline, status, customer.name ...
+  #}
   <div class="card card-p" style="text-align:center;margin-bottom:14px">
     <div style="font-size:2.5em;margin-bottom:10px">🎟️</div>
-    <div style="font-family:var(--fm);font-size:1.6em;font-weight:700;letter-spacing:2px;color:var(--accent);margin-bottom:8px">{{ code }}</div>
-    <div style="font-size:.84em;color:var(--text3)">เก็บรหัสนี้ไว้สำหรับติดตามงาน</div>
-  </div>
-  <div class="card card-p">
-    <div class="sec-title" style="margin-bottom:12px">รายละเอียด</div>
-    <table style="width:100%;font-size:.85em;border-collapse:collapse">
-      {% for k,v in [('SN',ticket.sn),('ชื่องาน',ticket.title),('ลูกค้า',ticket.customer.name),('เบอร์',ticket.customer.phone),('สถานะ',ticket.status),('ความเร่งด่วน',ticket.priority)] %}
-      <tr style="border-bottom:1px solid var(--border)">
-        <td style="padding:8px 0;color:var(--text3);width:100px">{{ k }}</td>
-        <td style="padding:8px 0;font-weight:600">{{ v }}</td>
-      </tr>
-      {% endfor %}
-    </table>
-    <div style="display:flex;gap:8px;margin-top:16px;flex-wrap:wrap">
-      <a href="/payment/{{ ticket.id }}" class="btn btn-primary btn-sm">💳 ชำระเงิน</a>
-      <a href="/order_pdf/{{ ticket.id }}" class="btn btn-ghost btn-sm">📄 PDF</a>
-      <a href="/tracking?q={{ code }}" class="btn btn-ghost btn-sm">🔍 ติดตาม</a>
+    <div style="font-family:var(--fm);font-size:1.7em;font-weight:700;letter-spacing:3px;color:var(--accent);margin-bottom:8px">
+      {{ code }}
+    </div>
+    <div style="font-size:.82em;color:var(--text3)" data-th="เก็บรหัสนี้ไว้ตรวจสอบสถานะ" data-en="Save this code to track your order">เก็บรหัสนี้ไว้ตรวจสอบสถานะ</div>
+    <div style="margin-top:10px">
+      {% if ticket.status == 'checked_in' %}
+        <span class="badge badge-accent">✅ <span data-th="Checked In แล้ว" data-en="Checked In">Checked In แล้ว</span></span>
+      {% else %}
+        <span class="badge badge-green">🟢 <span data-th="Active" data-en="Active">Active</span></span>
+      {% endif %}
     </div>
   </div>
+
+  <div class="card card-p">
+    <div class="sec-title" style="margin-bottom:14px" data-th="รายละเอียด" data-en="Details">รายละเอียด</div>
+    <table style="width:100%;font-size:.85em;border-collapse:collapse">
+      {# Use ticket fields correctly #}
+      <tr style="border-bottom:1px solid var(--border2)">
+        <td style="padding:8px 0;color:var(--text3);width:110px" data-th="ชื่องาน" data-en="Job">ชื่องาน</td>
+        <td style="padding:8px 0;font-weight:600;color:var(--text)">{{ ticket.task_title or '—' }}</td>
+      </tr>
+      <tr style="border-bottom:1px solid var(--border2)">
+        <td style="padding:8px 0;color:var(--text3)" data-th="ลูกค้า" data-en="Customer">ลูกค้า</td>
+        <td style="padding:8px 0;font-weight:600;color:var(--text)">{{ ticket.customer_name or '—' }}</td>
+      </tr>
+      <tr style="border-bottom:1px solid var(--border2)">
+        <td style="padding:8px 0;color:var(--text3)" data-th="เบอร์โทร" data-en="Phone">เบอร์โทร</td>
+        <td style="padding:8px 0;color:var(--text)">{{ ticket.customer_phone or '—' }}</td>
+      </tr>
+      {% if task %}
+      <tr style="border-bottom:1px solid var(--border2)">
+        <td style="padding:8px 0;color:var(--text3)">SN</td>
+        <td style="padding:8px 0;font-family:var(--fm);font-weight:600;color:var(--accent)">{{ task.sn or task.id[:8] }}</td>
+      </tr>
+      <tr style="border-bottom:1px solid var(--border2)">
+        <td style="padding:8px 0;color:var(--text3)" data-th="สถานะงาน" data-en="Status">สถานะงาน</td>
+        <td style="padding:8px 0">
+          <span class="badge badge-{% if task.status=='pending'%}amber{%elif task.status=='inprogress'%}blue{%elif task.status=='completed'%}green{%else%}red{%endif%}">
+            {%if task.status=='pending'%}⏳ รอ{%elif task.status=='inprogress'%}⚙️ กำลังทำ{%elif task.status=='completed'%}✅ เสร็จ{%else%}❌ ยกเลิก{%endif%}
+          </span>
+        </td>
+      </tr>
+      <tr style="border-bottom:1px solid var(--border2)">
+        <td style="padding:8px 0;color:var(--text3)" data-th="ความเร่งด่วน" data-en="Priority">ความเร่งด่วน</td>
+        <td style="padding:8px 0">
+          <span class="badge badge-{%if task.priority=='high'%}red{%elif task.priority=='medium'%}amber{%else%}green{%endif%}">
+            {%if task.priority=='high'%}🔴 เร่งด่วน{%elif task.priority=='medium'%}🟡 ปานกลาง{%else%}🟢 ทั่วไป{%endif%}
+          </span>
+        </td>
+      </tr>
+      {% if task.deadline %}
+      <tr style="border-bottom:1px solid var(--border2)">
+        <td style="padding:8px 0;color:var(--text3)" data-th="กำหนดส่ง" data-en="Deadline">กำหนดส่ง</td>
+        <td style="padding:8px 0;font-weight:600;color:var(--text)">{{ task.deadline }}</td>
+      </tr>
+      {% endif %}
+      {% endif %}
+      <tr style="border-bottom:1px solid var(--border2)">
+        <td style="padding:8px 0;color:var(--text3)" data-th="สร้างเมื่อ" data-en="Created">สร้างเมื่อ</td>
+        <td style="padding:8px 0;color:var(--text3);font-size:.9em">{{ (ticket.created_at or '')[:16].replace('T',' ') }}</td>
+      </tr>
+      {% if ticket.checked_in_at %}
+      <tr>
+        <td style="padding:8px 0;color:var(--text3)" data-th="Check-in เมื่อ" data-en="Checked In">Check-in เมื่อ</td>
+        <td style="padding:8px 0;color:var(--green);font-size:.9em">✅ {{ ticket.checked_in_at[:16].replace('T',' ') }}</td>
+      </tr>
+      {% endif %}
+    </table>
+
+    <div style="display:flex;gap:8px;margin-top:18px;flex-wrap:wrap">
+      {% if task %}
+      <a href="/payment/{{ ticket.task_id }}" class="btn btn-success btn-sm" data-th="💳 ชำระเงิน" data-en="💳 Pay Now">💳 ชำระเงิน</a>
+      <a href="/order_pdf/{{ ticket.task_id }}" class="btn btn-ghost btn-sm" data-th="📄 PDF" data-en="📄 PDF">📄 PDF</a>
+      {% endif %}
+      <a href="/tracking?q={{ ticket.customer_phone }}" class="btn btn-ghost btn-sm" data-th="🔍 ติดตามงาน" data-en="🔍 Track">🔍 ติดตามงาน</a>
+    </div>
+  </div>
+{% endif %}
 </div>
 {% endblock %}

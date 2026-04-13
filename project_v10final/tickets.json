@@ -1,2 +1,12 @@
 {
+  "5432F54E": {
+    "task_id": "1776087598591",
+    "customer_name": "Pakorn Earmvorakul",
+    "customer_phone": "0942896664",
+    "task_title": "คำสั่งซื้อออนไลน์ (1 รายการ)",
+    "status": "active",
+    "created_at": "2026-04-13T20:39:58.595827",
+    "checked_in_at": null,
+    "checked_in_by": null
+  }
 }

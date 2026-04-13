@@ -4,4 +4,3 @@ reportlab>=4.0.0
 openpyxl>=3.1.0
 pillow>=9.0.0
 werkzeug>=2.3.0
-# NOTE: ไม่ต้องติดตั้ง wkhtmltopdf แล้ว! ใช้ reportlab แทน

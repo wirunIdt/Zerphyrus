@@ -1,6 +1,6 @@
 {% extends "base.html" %}
-{% block title %}สั่งงาน{% endblock %}
-{% block topbar_title %}<span data-th="📝 สั่งงาน 3D" data-en="📝 New Order">📝 สั่งงาน 3D</span>{% endblock %}
+{% block title %}สั่งงาน 3D{% endblock %}
+{% block topbar_title %}<span data-th="🖨️ สั่งงาน 3D Print" data-en="🖨️ 3D Print Order">🖨️ สั่งงาน 3D Print</span>{% endblock %}
 {% block extra_head %}
 <style>
 .of-wrap{max-width:620px;margin:0 auto}
@@ -24,7 +24,9 @@
   <div class="success-card">
     <div style="font-size:2.5em;margin-bottom:8px">🎉</div>
     <div style="font-size:1.1em;font-weight:700;color:var(--green);margin-bottom:6px" data-th="ส่งคำสั่งงานเรียบร้อย!" data-en="Order submitted!">ส่งคำสั่งงานเรียบร้อย!</div>
-    <div style="font-size:.84em;color:var(--text2);margin-bottom:12px"><span data-th="ขอบคุณ" data-en="Thank you">ขอบคุณ</span> <strong style="color:var(--text)">{{ customer_name }}</strong></div>
+    <div style="font-size:.84em;color:var(--text2);margin-bottom:12px">
+      <span data-th="ขอบคุณ" data-en="Thank you">ขอบคุณ</span> <strong style="color:var(--text)">{{ customer_name }}</strong>
+    </div>
     {% if order_sn %}
     <div style="font-size:.7em;color:var(--text3)" data-th="หมายเลขออเดอร์" data-en="Order No.">หมายเลขออเดอร์</div>
     <div class="ticket-code-box" style="font-size:.95em;letter-spacing:2px">{{ order_sn }}</div>
@@ -34,23 +36,31 @@
     <div style="display:flex;gap:10px;justify-content:center;margin-top:16px;flex-wrap:wrap">
       <a href="/ticket/{{ ticket_code }}" class="btn btn-primary btn-sm" data-th="🎟️ ดู Ticket" data-en="🎟️ View Ticket">🎟️ ดู Ticket</a>
       <a href="/payment/{{ task_id }}" class="btn btn-success btn-sm" data-th="💳 ชำระเงิน" data-en="💳 Pay Now">💳 ชำระเงิน</a>
-      <a href="/" class="btn btn-ghost btn-sm" data-th="📝 สั่งงานอีก" data-en="📝 New Order">📝 สั่งงานอีก</a>
+      <a href="/model" class="btn btn-ghost btn-sm" data-th="📝 สั่งงานอีก" data-en="📝 New Order">📝 สั่งงานอีก</a>
     </div>
   </div>
   {% endif %}
 
   <div class="card card-p">
     <div style="margin-bottom:18px">
-      <div style="font-size:1em;font-weight:700;color:var(--text)" data-th="📋 ข้อมูลการสั่งงาน" data-en="📋 Order Details">📋 ข้อมูลการสั่งงาน</div>
-      <div style="font-size:.76em;color:var(--text3);margin-top:2px" data-th="กรอกข้อมูลให้ครบถ้วน" data-en="Fill in all required fields">กรอกข้อมูลให้ครบถ้วน</div>
+      <div style="display:flex;align-items:center;gap:10px;margin-bottom:6px">
+        <span style="font-size:1.5em">🖨️</span>
+        <div>
+          <div style="font-size:1em;font-weight:700;color:var(--text)" data-th="สั่งงาน 3D Print" data-en="3D Print Order">สั่งงาน 3D Print</div>
+          <div style="font-size:.76em;color:var(--text3)" data-th="กรอกข้อมูลให้ครบถ้วน" data-en="Fill in all required fields">กรอกข้อมูลให้ครบถ้วน</div>
+        </div>
+      </div>
     </div>
 
-    <form method="post" action="/submit_order">
-      <div style="font-size:.68em;font-weight:700;color:var(--accent);text-transform:uppercase;letter-spacing:1px;margin-bottom:10px" data-th="👤 ข้อมูลลูกค้า" data-en="👤 CUSTOMER INFO">👤 ข้อมูลลูกค้า</div>
+    <!-- FIX 1: action changed to /model/submit (POST only route) -->
+    <form method="post" action="/model/submit">
+      <div style="font-size:.68em;font-weight:700;color:var(--accent);text-transform:uppercase;letter-spacing:1px;margin-bottom:10px"
+           data-th="👤 ข้อมูลลูกค้า" data-en="👤 CUSTOMER INFO">👤 ข้อมูลลูกค้า</div>
       <div class="field-row">
         <div class="field">
           <label data-th="ชื่อ-นามสกุล *" data-en="Full Name *">ชื่อ-นามสกุล *</label>
-          <input name="customer_name" required class="input" placeholder="สมชาย ใจดี" data-ph-th="สมชาย ใจดี" data-ph-en="John Doe">
+          <input name="customer_name" required class="input" placeholder="สมชาย ใจดี"
+                 data-ph-th="สมชาย ใจดี" data-ph-en="John Doe">
         </div>
         <div class="field">
           <label data-th="เบอร์โทรศัพท์ *" data-en="Phone Number *">เบอร์โทรศัพท์ *</label>
@@ -64,20 +74,26 @@
 
       <hr class="div" style="margin:14px 0 16px">
 
-      <div style="font-size:.68em;font-weight:700;color:var(--accent);text-transform:uppercase;letter-spacing:1px;margin-bottom:10px" data-th="📦 รายละเอียดงาน" data-en="📦 JOB DETAILS">📦 รายละเอียดงาน</div>
+      <div style="font-size:.68em;font-weight:700;color:var(--accent);text-transform:uppercase;letter-spacing:1px;margin-bottom:10px"
+           data-th="📦 รายละเอียดงาน 3D" data-en="📦 3D JOB DETAILS">📦 รายละเอียดงาน 3D</div>
       <div class="field">
-        <label data-th="ชื่อรายการงาน *" data-en="Job Title *">ชื่อรายการงาน *</label>
-        <input name="task_title" required class="input" placeholder="เช่น ออกแบบโลโก้, พิมพ์นามบัตร..." data-ph-th="เช่น ออกแบบโลโก้..." data-ph-en="e.g. Logo Design, Business Card...">
+        <label data-th="ชื่อชิ้นงาน *" data-en="Part Name *">ชื่อชิ้นงาน *</label>
+        <input name="task_title" required class="input" placeholder="เช่น โมเดลตัวละคร, ชิ้นส่วนเครื่องจักร..."
+               data-ph-th="เช่น โมเดลตัวละคร, ชิ้นส่วนเครื่องจักร..."
+               data-ph-en="e.g. Character model, machine part...">
       </div>
       <div class="field">
-        <label data-th="รายละเอียดเพิ่มเติม" data-en="Additional Details">รายละเอียดเพิ่มเติม</label>
-        <textarea name="task_description" class="input" style="min-height:80px" placeholder="รายละเอียดงาน หรือความต้องการพิเศษ..." data-ph-th="รายละเอียดงาน..." data-ph-en="Details or special requirements..."></textarea>
+        <label data-th="รายละเอียด / ข้อกำหนด" data-en="Details / Specs">รายละเอียด / ข้อกำหนด</label>
+        <textarea name="task_description" class="input" style="min-height:90px"
+                  placeholder="วัสดุที่ต้องการ, ขนาด, สี, ความละเอียด..."
+                  data-ph-th="วัสดุที่ต้องการ, ขนาด, สี..."
+                  data-ph-en="Material, size, color, resolution..."></textarea>
       </div>
       <div class="field-row">
         <div class="field">
           <label data-th="วันที่กำหนดส่ง" data-en="Deadline">วันที่กำหนดส่ง</label>
           <input name="deadline" id="ddl" type="date" class="input">
-          <div class="dl-hint">⏰ <span data-th="เร็วสุด +9 วันจากวันนี้" data-en="Min +9 days from today">เร็วสุด +9 วันจากวันนี้</span></div>
+          <div class="dl-hint">⏰ <span data-th="เร็วสุด +9 วันจากวันนี้" data-en="Min +9 days">เร็วสุด +9 วันจากวันนี้</span></div>
         </div>
         <div class="field">
           <label data-th="ความเร่งด่วน" data-en="Priority">ความเร่งด่วน</label>
@@ -91,7 +107,7 @@
       </div>
 
       <button type="submit" class="btn btn-primary" style="width:100%;justify-content:center;padding:11px;margin-top:6px">
-        <span data-th="📤 ส่งคำสั่งงาน" data-en="📤 Submit Order">📤 ส่งคำสั่งงาน</span>
+        <span data-th="📤 ส่งคำสั่งงาน 3D" data-en="📤 Submit 3D Order">📤 ส่งคำสั่งงาน 3D</span>
       </button>
     </form>
   </div>

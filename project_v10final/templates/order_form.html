@@ -1,23 +1,7 @@
 {% extends "base.html" %}
 {% block title %}สั่งงาน{% endblock %}
 {% block topbar_title %}<span data-th="📝 สั่งงานใหม่" data-en="📝 New Order">📝 สั่งงานใหม่</span>{% endblock %}
-{% block extra_head %}
-<style>
-.of-wrap{max-width:620px;margin:0 auto}
-.field-row{display:grid;grid-template-columns:1fr 1fr;gap:12px}
-.success-card{background:linear-gradient(135deg,rgba(16,185,129,.12),rgba(5,150,105,.08));border:1px solid rgba(16,185,129,.3);border-radius:var(--r);padding:26px;text-align:center;margin-bottom:20px;animation:fadeIn .5s ease}
-@keyframes fadeIn{from{opacity:0;transform:translateY(-10px)}to{opacity:1;transform:translateY(0)}}
-.ticket-code-box{background:var(--surface2);border:2px dashed rgba(108,99,255,.5);border-radius:var(--r-sm);padding:12px 22px;display:inline-block;font-family:var(--fm);font-size:1.5em;font-weight:700;color:#a78bfa;letter-spacing:4px;margin:8px 0}
-.prio-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-top:4px}
-.pb{padding:10px 8px;border-radius:var(--r-sm);border:1.5px solid var(--border);background:var(--surface2);font-size:.78em;font-weight:600;cursor:pointer;transition:all .18s;text-align:center;color:var(--text2)}
-.pb.on-high{border-color:var(--red);background:var(--red-lt);color:var(--red)}
-.pb.on-med{border-color:var(--amber);background:var(--amber-lt);color:var(--amber)}
-.pb.on-low{border-color:var(--green);background:var(--green-lt);color:var(--green)}
-.pb:hover{border-color:var(--accent);color:var(--text)}
-.dl-hint{font-size:.72em;color:var(--text3);margin-top:4px;display:flex;align-items:center;gap:4px}
-@media(max-width:520px){.field-row{grid-template-columns:1fr}}
-</style>
-{% endblock %}
+{% block extra_head %}<style>.of-wrap{max-width:620px;margin:0 auto}.field-row{display:grid;grid-template-columns:1fr 1fr;gap:12px}.success-card{background:linear-gradient(135deg,rgba(16,185,129,.12),rgba(5,150,105,.08));border:1px solid rgba(16,185,129,.3);border-radius:var(--r);padding:26px;text-align:center;margin-bottom:20px;animation:fadeIn .5s ease}@keyframes fadeIn{from{opacity:0;transform:translateY(-10px)}to{opacity:1;transform:translateY(0)}}.ticket-code-box{background:var(--surface2);border:2px dashed rgba(108,99,255,.5);border-radius:var(--r-sm);padding:12px 22px;display:inline-block;font-family:var(--fm);font-size:1.5em;font-weight:700;color:#a78bfa;letter-spacing:4px;margin:8px 0}.prio-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-top:4px}.pb{padding:10px 8px;border-radius:var(--r-sm);border:1.5px solid var(--border);background:var(--surface2);font-size:.78em;font-weight:600;cursor:pointer;transition:all .18s;text-align:center;color:var(--text2)}.pb.on-high{border-color:var(--red);background:var(--red-lt);color:var(--red)}.pb.on-med{border-color:var(--amber);background:var(--amber-lt);color:var(--amber)}.pb.on-low{border-color:var(--green);background:var(--green-lt);color:var(--green)}.pb:hover{border-color:var(--accent);color:var(--text)}.dl-hint{font-size:.72em;color:var(--text3);margin-top:4px;display:flex;align-items:center;gap:4px}@media(max-width:520px){.field-row{grid-template-columns:1fr}}</style>{% endblock %}
 {% block content %}
 <div class="of-wrap">
   {% if success %}
@@ -25,10 +9,7 @@
     <div style="font-size:2.5em;margin-bottom:8px">🎉</div>
     <div style="font-size:1.1em;font-weight:700;color:var(--green);margin-bottom:6px" data-th="ส่งคำสั่งงานเรียบร้อย!" data-en="Order submitted!">ส่งคำสั่งงานเรียบร้อย!</div>
     <div style="font-size:.84em;color:var(--text2);margin-bottom:12px"><span data-th="ขอบคุณ" data-en="Thank you">ขอบคุณ</span> <strong style="color:var(--text)">{{ customer_name }}</strong></div>
-    {% if order_sn %}
-    <div style="font-size:.7em;color:var(--text3)" data-th="หมายเลขออเดอร์" data-en="Order No.">หมายเลขออเดอร์</div>
-    <div class="ticket-code-box" style="font-size:.95em;letter-spacing:2px">{{ order_sn }}</div>
-    {% endif %}
+    {% if order_sn %}<div style="font-size:.7em;color:var(--text3)" data-th="หมายเลขออเดอร์" data-en="Order No.">หมายเลขออเดอร์</div><div class="ticket-code-box" style="font-size:.95em;letter-spacing:2px">{{ order_sn }}</div>{% endif %}
     <div style="font-size:.7em;color:var(--text3);margin-top:8px" data-th="รหัส Ticket" data-en="Ticket Code">รหัส Ticket</div>
     <div class="ticket-code-box">{{ ticket_code }}</div>
     <div style="display:flex;gap:10px;justify-content:center;margin-top:16px;flex-wrap:wrap">
@@ -38,82 +19,32 @@
     </div>
   </div>
   {% endif %}
-
   <div class="card card-p">
     <div style="margin-bottom:18px">
       <div style="font-size:1em;font-weight:700;color:var(--text)" data-th="📋 ข้อมูลการสั่งงาน" data-en="📋 Order Details">📋 ข้อมูลการสั่งงาน</div>
       <div style="font-size:.76em;color:var(--text3);margin-top:2px" data-th="กรอกข้อมูลให้ครบถ้วน" data-en="Fill in all required fields">กรอกข้อมูลให้ครบถ้วน</div>
     </div>
-
     <form method="post" action="/submit_order">
       <div style="font-size:.68em;font-weight:700;color:var(--accent);text-transform:uppercase;letter-spacing:1px;margin-bottom:10px" data-th="👤 ข้อมูลลูกค้า" data-en="👤 CUSTOMER INFO">👤 ข้อมูลลูกค้า</div>
       <div class="field-row">
-        <div class="field">
-          <label data-th="ชื่อ-นามสกุล *" data-en="Full Name *">ชื่อ-นามสกุล *</label>
-          <input name="customer_name" required class="input" placeholder="สมชาย ใจดี" data-ph-th="สมชาย ใจดี" data-ph-en="John Doe">
-        </div>
-        <div class="field">
-          <label data-th="เบอร์โทรศัพท์ *" data-en="Phone Number *">เบอร์โทรศัพท์ *</label>
-          <input name="customer_phone" required class="input" placeholder="081-234-5678">
-        </div>
+        <div class="field"><label data-th="ชื่อ-นามสกุล *" data-en="Full Name *">ชื่อ-นามสกุล *</label><input name="customer_name" required class="input" placeholder="สมชาย ใจดี" data-ph-th="สมชาย ใจดี" data-ph-en="John Doe"></div>
+        <div class="field"><label data-th="เบอร์โทรศัพท์ *" data-en="Phone Number *">เบอร์โทรศัพท์ *</label><input name="customer_phone" required class="input" placeholder="081-234-5678"></div>
       </div>
-      <div class="field">
-        <label data-th="อีเมล (ไม่บังคับ)" data-en="Email (optional)">อีเมล (ไม่บังคับ)</label>
-        <input name="customer_email" type="email" class="input" placeholder="example@email.com">
-      </div>
-
+      <div class="field"><label data-th="อีเมล (ไม่บังคับ)" data-en="Email (optional)">อีเมล (ไม่บังคับ)</label><input name="customer_email" type="email" class="input" placeholder="example@email.com"></div>
       <hr class="div" style="margin:14px 0 16px">
-
       <div style="font-size:.68em;font-weight:700;color:var(--accent);text-transform:uppercase;letter-spacing:1px;margin-bottom:10px" data-th="📦 รายละเอียดงาน" data-en="📦 JOB DETAILS">📦 รายละเอียดงาน</div>
-      <div class="field">
-        <label data-th="ชื่อรายการงาน *" data-en="Job Title *">ชื่อรายการงาน *</label>
-        <input name="task_title" required class="input" placeholder="เช่น ออกแบบโลโก้, พิมพ์นามบัตร..." data-ph-th="เช่น ออกแบบโลโก้..." data-ph-en="e.g. Logo Design, Business Card...">
-      </div>
-      <div class="field">
-        <label data-th="รายละเอียดเพิ่มเติม" data-en="Additional Details">รายละเอียดเพิ่มเติม</label>
-        <textarea name="task_description" class="input" style="min-height:80px" placeholder="รายละเอียดงาน หรือความต้องการพิเศษ..." data-ph-th="รายละเอียดงาน..." data-ph-en="Details or special requirements..."></textarea>
-      </div>
+      <div class="field"><label data-th="ชื่อรายการงาน *" data-en="Job Title *">ชื่อรายการงาน *</label><input name="task_title" required class="input" placeholder="เช่น ออกแบบโลโก้..." data-ph-th="เช่น ออกแบบโลโก้..." data-ph-en="e.g. Logo Design..."></div>
+      <div class="field"><label data-th="รายละเอียดเพิ่มเติม" data-en="Additional Details">รายละเอียดเพิ่มเติม</label><textarea name="task_description" class="input" style="min-height:80px" placeholder="รายละเอียดงาน..." data-ph-th="รายละเอียดงาน..." data-ph-en="Details..."></textarea></div>
       <div class="field-row">
-        <div class="field">
-          <label data-th="วันที่กำหนดส่ง" data-en="Deadline">วันที่กำหนดส่ง</label>
-          <input name="deadline" id="ddl" type="date" class="input">
-          <div class="dl-hint">⏰ <span data-th="เร็วสุด +9 วันจากวันนี้" data-en="Min +9 days from today">เร็วสุด +9 วันจากวันนี้</span></div>
-        </div>
-        <div class="field">
-          <label data-th="ความเร่งด่วน" data-en="Priority">ความเร่งด่วน</label>
-          <input type="hidden" name="priority" id="prioVal" value="medium">
-          <div class="prio-grid">
-            <div class="pb" id="pb-high" onclick="setPrio('high')" data-th="🔴 เร่งด่วน" data-en="🔴 High">🔴 เร่งด่วน</div>
-            <div class="pb on-med" id="pb-med" onclick="setPrio('medium')" data-th="🟡 ปานกลาง" data-en="🟡 Medium">🟡 ปานกลาง</div>
-            <div class="pb" id="pb-low" onclick="setPrio('low')" data-th="🟢 ทั่วไป" data-en="🟢 Low">🟢 ทั่วไป</div>
-          </div>
-        </div>
+        <div class="field"><label data-th="วันที่กำหนดส่ง" data-en="Deadline">วันที่กำหนดส่ง</label><input name="deadline" id="ddl" type="date" class="input"><div class="dl-hint">⏰ <span data-th="เร็วสุด +9 วันจากวันนี้" data-en="Min +9 days">เร็วสุด +9 วันจากวันนี้</span></div></div>
+        <div class="field"><label data-th="ความเร่งด่วน" data-en="Priority">ความเร่งด่วน</label><input type="hidden" name="priority" id="prioVal" value="medium"><div class="prio-grid"><div class="pb" id="pb-high" onclick="setPrio('high')" data-th="🔴 เร่งด่วน" data-en="🔴 High">🔴 เร่งด่วน</div><div class="pb on-med" id="pb-med" onclick="setPrio('medium')" data-th="🟡 ปานกลาง" data-en="🟡 Medium">🟡 ปานกลาง</div><div class="pb" id="pb-low" onclick="setPrio('low')" data-th="🟢 ทั่วไป" data-en="🟢 Low">🟢 ทั่วไป</div></div></div>
       </div>
-
-      <button type="submit" class="btn btn-primary" style="width:100%;justify-content:center;padding:11px;margin-top:6px">
-        <span data-th="📤 ส่งคำสั่งงาน" data-en="📤 Submit Order">📤 ส่งคำสั่งงาน</span>
-      </button>
+      <button type="submit" class="btn btn-primary" style="width:100%;justify-content:center;padding:11px;margin-top:6px"><span data-th="📤 ส่งคำสั่งงาน" data-en="📤 Submit Order">📤 ส่งคำสั่งงาน</span></button>
     </form>
   </div>
 </div>
 {% endblock %}
-{% block extra_scripts %}
-<script>
-(function(){
-  const d=new Date(); d.setDate(d.getDate()+9);
-  const iso=d.toISOString().split('T')[0];
-  const inp=document.getElementById('ddl');
-  inp.min=iso; inp.value=iso;
-  inp.addEventListener('change',function(){
-    if(this.value<iso){this.value=iso;toast('กำหนดส่งต้องเป็น +9 วันขึ้นไป','warning');}
-  });
-})();
-function setPrio(p){
-  document.querySelectorAll('.pb').forEach(el=>el.className='pb');
-  const m={high:'on-high',medium:'on-med',low:'on-low'};
-  const id={high:'pb-high',medium:'pb-med',low:'pb-low'};
-  document.getElementById(id[p]).classList.add(m[p]);
-  document.getElementById('prioVal').value=p;
-}
-</script>
-{% endblock %}
+{% block extra_scripts %}<script>
+(function(){const d=new Date();d.setDate(d.getDate()+9);const iso=d.toISOString().split('T')[0];const inp=document.getElementById('ddl');inp.min=iso;inp.value=iso;inp.addEventListener('change',function(){if(this.value<iso){this.value=iso;toast('กำหนดส่งต้องเป็น +9 วันขึ้นไป','warning')}})})();
+function setPrio(p){document.querySelectorAll('.pb').forEach(el=>el.className='pb');const m={high:'on-high',medium:'on-med',low:'on-low'};const id={high:'pb-high',medium:'pb-med',low:'pb-low'};document.getElementById(id[p]).classList.add(m[p]);document.getElementById('prioVal').value=p}
+</script>{% endblock %}

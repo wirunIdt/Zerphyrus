@@ -8,29 +8,13 @@
     <div style="font-size:1.1em;font-weight:700;color:var(--text)" data-th="เข้าสู่ระบบ Admin" data-en="Admin Login">เข้าสู่ระบบ Admin</div>
     <div style="font-size:.78em;color:var(--text3);margin-top:3px" data-th="ระบบจัดการร้านค้า" data-en="Shop Management System">ระบบจัดการร้านค้า</div>
   </div>
-  {% if first_time %}
-  <div class="card card-p" style="margin-bottom:14px;background:var(--amber-lt);border:1px solid var(--amber)">
-    <div style="font-size:.82em;color:var(--amber);font-weight:600">⚠️ <span data-th="ครั้งแรก: ใช้ admin / admin123" data-en="First time: use admin / admin123">ครั้งแรก: ใช้ admin / admin123</span></div>
-  </div>
-  {% endif %}
-  {% if error %}
-  <div class="card card-p" style="margin-bottom:14px;background:var(--red-lt);border:1px solid var(--red)">
-    <div style="font-size:.82em;color:var(--red);font-weight:600">❌ {{ error }}</div>
-  </div>
-  {% endif %}
+  {% if first_time %}<div class="card card-p" style="margin-bottom:14px;background:var(--amber-lt);border:1px solid var(--amber)"><div style="font-size:.82em;color:var(--amber);font-weight:600">⚠️ <span data-th="ครั้งแรก: ใช้ admin / admin123" data-en="First time: use admin / admin123">ครั้งแรก: ใช้ admin / admin123</span></div></div>{% endif %}
+  {% if error %}<div class="card card-p" style="margin-bottom:14px;background:var(--red-lt);border:1px solid var(--red)"><div style="font-size:.82em;color:var(--red);font-weight:600">❌ {{ error }}</div></div>{% endif %}
   <div class="card card-p">
     <form method="post" action="/login">
-      <div class="field">
-        <label data-th="ชื่อผู้ใช้" data-en="Username">ชื่อผู้ใช้</label>
-        <input name="username" class="input" placeholder="admin" required autofocus>
-      </div>
-      <div class="field">
-        <label data-th="รหัสผ่าน" data-en="Password">รหัสผ่าน</label>
-        <input name="password" type="password" class="input" placeholder="••••••••" required>
-      </div>
-      <button type="submit" class="btn btn-primary" style="width:100%;justify-content:center;padding:11px;margin-top:4px">
-        <span data-th="🔐 เข้าสู่ระบบ" data-en="🔐 Login">🔐 เข้าสู่ระบบ</span>
-      </button>
+      <div class="field"><label data-th="ชื่อผู้ใช้" data-en="Username">ชื่อผู้ใช้</label><input name="username" class="input" placeholder="admin" required autofocus></div>
+      <div class="field"><label data-th="รหัสผ่าน" data-en="Password">รหัสผ่าน</label><input name="password" type="password" class="input" placeholder="••••••••" required></div>
+      <button type="submit" class="btn btn-primary" style="width:100%;justify-content:center;padding:11px;margin-top:4px"><span data-th="🔐 เข้าสู่ระบบ" data-en="🔐 Login">🔐 เข้าสู่ระบบ</span></button>
     </form>
   </div>
 </div>

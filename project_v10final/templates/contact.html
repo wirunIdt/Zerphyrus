@@ -1,222 +1,65 @@
 {% extends "base.html" %}
 {% block title %}ติดต่อเรา{% endblock %}
 {% block topbar_title %}<span data-th="📬 ติดต่อเรา" data-en="📬 Contact Us">📬 ติดต่อเรา</span>{% endblock %}
-{% block extra_head %}
-<style>
-/* Hero section */
-.hero{
-  position:relative;
-  border-radius:var(--r);
-  overflow:hidden;
-  height:360px;
-  margin-bottom:32px;
-  display:flex;align-items:center;justify-content:center;text-align:center;
-}
-.hero-bg{
-  position:absolute;inset:0;
-  background:linear-gradient(160deg,#0d1117 0%,#161b27 40%,#1a1e2e 100%);
-}
-/* Animated grid lines */
-.hero-grid{
-  position:absolute;inset:0;
-  background-image:
-    linear-gradient(rgba(108,99,255,.06) 1px,transparent 1px),
-    linear-gradient(90deg,rgba(108,99,255,.06) 1px,transparent 1px);
-  background-size:40px 40px;
-  animation:gridMove 20s linear infinite;
-}
-@keyframes gridMove{from{transform:translateY(0)}to{transform:translateY(40px)}}
-/* City skyline SVG overlay */
-.hero-skyline{
-  position:absolute;bottom:0;left:0;right:0;height:180px;
-  background:linear-gradient(to top,rgba(108,99,255,.08) 0%,transparent 100%);
-  mask-image:linear-gradient(to top,black 40%,transparent 100%);
-}
-/* Glow orbs */
-.hero-orb{
-  position:absolute;border-radius:50%;filter:blur(80px);
-  animation:orbPulse 6s ease-in-out infinite;
-}
-@keyframes orbPulse{0%,100%{opacity:.3;transform:scale(1)}50%{opacity:.6;transform:scale(1.1)}}
-.hero-content{position:relative;z-index:2;padding:0 20px}
-.hero-tag{display:inline-flex;align-items:center;gap:6px;background:rgba(108,99,255,.15);border:1px solid rgba(108,99,255,.3);color:#a78bfa;padding:4px 14px;border-radius:var(--r-pill);font-size:.72em;font-weight:600;margin-bottom:18px;letter-spacing:.5px}
-.hero-title{font-size:2.8em;font-weight:800;color:var(--text);line-height:1.1;margin-bottom:12px;letter-spacing:-.03em}
-.hero-title .accent{background:linear-gradient(135deg,#f97316,#ef4444);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text}
-.hero-dots{display:flex;justify-content:center;gap:5px;margin-bottom:18px}
-.hero-dots span{width:5px;height:5px;border-radius:50%;background:var(--accent);opacity:.4}
-.hero-dots span:nth-child(3){opacity:1;transform:scale(1.4)}
-.hero-sub{font-size:.9em;color:var(--text2);max-width:440px;line-height:1.6}
-
-/* Info cards */
-.info-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:0;margin-bottom:32px;border-radius:var(--r);overflow:hidden;border:1px solid var(--border)}
-.info-card{padding:32px 24px;text-align:center;background:var(--surface);transition:background .2s;border-right:1px solid var(--border)}
-.info-card:last-child{border-right:none}
-.info-card:hover{background:var(--surface2)}
-.info-icon-wrap{
-  width:56px;height:56px;border-radius:14px;
-  display:flex;align-items:center;justify-content:center;
-  font-size:1.5em;
-  margin:0 auto 16px;
-  transition:transform .2s;
-}
-.info-card:hover .info-icon-wrap{transform:scale(1.08)}
-.info-label{font-size:.65em;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:1.5px;margin-bottom:8px}
-.info-title{font-size:.94em;font-weight:700;color:var(--text);margin-bottom:10px}
-.info-desc{font-size:.78em;color:var(--text2);line-height:1.6;margin-bottom:10px}
-.info-link{font-size:.8em;font-weight:700;color:#f97316}
-
-/* Contact form */
-.cf-wrap{display:grid;grid-template-columns:1fr 1.4fr;gap:20px;align-items:start}
-.cf-card{background:var(--surface);border:1px solid var(--border);border-radius:var(--r);overflow:hidden}
-
-/* Success */
-.sent-card{background:linear-gradient(135deg,rgba(16,185,129,.1),rgba(5,150,105,.07));border:1px solid rgba(16,185,129,.3);border-radius:var(--r);padding:32px;text-align:center;animation:fadeIn .5s ease}
-@keyframes fadeIn{from{opacity:0;transform:translateY(-8px)}to{opacity:1;transform:translateY(0)}}
-
-@media(max-width:900px){.info-grid{grid-template-columns:1fr}.info-card{border-right:none;border-bottom:1px solid var(--border)}.info-card:last-child{border-bottom:none}}
-@media(max-width:700px){.cf-wrap{grid-template-columns:1fr}.hero{height:280px}.hero-title{font-size:2em}}
-</style>
-{% endblock %}
+{% block extra_head %}<style>.hero{position:relative;border-radius:var(--r);overflow:hidden;height:340px;margin-bottom:28px;display:flex;align-items:center;justify-content:center;text-align:center}.hero-bg{position:absolute;inset:0;background:linear-gradient(160deg,#0d1117 0%,#161b27 40%,#1a1e2e 100%)}.hero-grid{position:absolute;inset:0;background-image:linear-gradient(rgba(108,99,255,.06) 1px,transparent 1px),linear-gradient(90deg,rgba(108,99,255,.06) 1px,transparent 1px);background-size:40px 40px;animation:gridMove 20s linear infinite}@keyframes gridMove{from{transform:translateY(0)}to{transform:translateY(40px)}}.hero-orb{position:absolute;border-radius:50%;filter:blur(80px);animation:orbPulse 6s ease-in-out infinite}@keyframes orbPulse{0%,100%{opacity:.3;transform:scale(1)}50%{opacity:.6;transform:scale(1.1)}}.hero-content{position:relative;z-index:2;padding:0 20px}.hero-tag{display:inline-flex;align-items:center;gap:6px;background:rgba(108,99,255,.15);border:1px solid rgba(108,99,255,.3);color:#a78bfa;padding:4px 14px;border-radius:var(--r-pill);font-size:.72em;font-weight:600;margin-bottom:18px;letter-spacing:.5px}.hero-title{font-size:2.8em;font-weight:800;color:var(--text);line-height:1.1;margin-bottom:12px;letter-spacing:-.03em}.hero-title .accent{background:linear-gradient(135deg,#f97316,#ef4444);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text}.hero-sub{font-size:.9em;color:var(--text2);max-width:440px;line-height:1.6}.info-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:0;margin-bottom:28px;border-radius:var(--r);overflow:hidden;border:1px solid var(--border)}.info-card{padding:28px 22px;text-align:center;background:var(--surface);transition:background .2s;border-right:1px solid var(--border)}.info-card:last-child{border-right:none}.info-card:hover{background:var(--surface2)}.info-icon-wrap{width:52px;height:52px;border-radius:14px;display:flex;align-items:center;justify-content:center;font-size:1.4em;margin:0 auto 14px;transition:transform .2s}.info-card:hover .info-icon-wrap{transform:scale(1.08)}.cf-wrap{display:grid;grid-template-columns:1fr 1.4fr;gap:20px;align-items:start}.cf-card{background:var(--surface);border:1px solid var(--border);border-radius:var(--r);overflow:hidden}.field-row{display:grid;grid-template-columns:1fr 1fr;gap:12px}.sent-card{background:linear-gradient(135deg,rgba(16,185,129,.1),rgba(5,150,105,.07));border:1px solid rgba(16,185,129,.3);border-radius:var(--r);padding:32px;text-align:center;animation:fadeIn .5s ease}@keyframes fadeIn{from{opacity:0;transform:translateY(-8px)}to{opacity:1;transform:translateY(0)}}@media(max-width:900px){.info-grid{grid-template-columns:1fr}.info-card{border-right:none;border-bottom:1px solid var(--border)}.info-card:last-child{border-bottom:none}}@media(max-width:700px){.cf-wrap{grid-template-columns:1fr}.hero{height:260px}.hero-title{font-size:2em}}</style>{% endblock %}
 {% block content %}
-
-<!-- Hero banner -->
 <div class="hero">
-  <div class="hero-bg"></div>
-  <div class="hero-grid"></div>
-  <!-- Glow orbs -->
+  <div class="hero-bg"></div><div class="hero-grid"></div>
   <div class="hero-orb" style="width:300px;height:300px;top:-100px;left:10%;background:radial-gradient(circle,rgba(108,99,255,.15),transparent 70%)"></div>
   <div class="hero-orb" style="width:200px;height:200px;bottom:-50px;right:15%;background:radial-gradient(circle,rgba(249,115,22,.12),transparent 70%);animation-delay:3s"></div>
-
   <div class="hero-content">
-    <div class="hero-tag">
-      <span>✦</span>
-      <span data-th="ติดต่อเรา" data-en="Get In Touch">ติดต่อเรา</span>
-    </div>
-    <div class="hero-title">
-      <span data-th="CONTACT" data-en="CONTACT">CONTACT</span>
-      <span> </span>
-      <span class="accent" data-th="US" data-en="US">US</span>
-    </div>
-    <div class="hero-dots"><span></span><span></span><span></span><span></span><span></span></div>
-    <div class="hero-sub" data-th="ต้องการความช่วยเหลือ? ทีมงานของเราพร้อมให้บริการ กรุณาฝากข้อมูลติดต่อไว้และเราจะรีบกลับหาโดยเร็ว" data-en="Need an expert? You are more than welcomed to leave your contact info and we will be in touch shortly">
-      ต้องการความช่วยเหลือ? ทีมงานของเราพร้อมให้บริการ<br>กรุณาฝากข้อมูลติดต่อไว้และเราจะรีบกลับหาโดยเร็ว
-    </div>
+    <div class="hero-tag"><span>✦</span><span data-th="ติดต่อเรา" data-en="Get In Touch">ติดต่อเรา</span></div>
+    <div class="hero-title"><span data-th="CONTACT" data-en="CONTACT">CONTACT</span> <span class="accent" data-th="US" data-en="US">US</span></div>
+    <div class="hero-sub" data-th="ต้องการความช่วยเหลือ? ทีมงานพร้อมให้บริการ ฝากข้อมูลไว้เราจะรีบกลับหา" data-en="Need an expert? Leave your contact info and we will be in touch shortly">ต้องการความช่วยเหลือ? ทีมงานพร้อมให้บริการ<br>ฝากข้อมูลไว้เราจะรีบกลับหาโดยเร็ว</div>
   </div>
 </div>
-
-<!-- Info cards (3 cols) -->
 <div class="info-grid">
-  <div class="info-card">
-    <div class="info-icon-wrap" style="background:rgba(249,115,22,.12)">
-      <span style="color:#f97316">🏠</span>
-    </div>
-    <div class="info-label" data-th="VISIT US" data-en="VISIT US">VISIT US</div>
-    <div class="info-title" data-th="สำนักงานของเรา" data-en="Our Office">สำนักงานของเรา</div>
-    <div class="info-desc" data-th="ยินดีต้อนรับทุกวันทำการ จันทร์-ศุกร์ 9:00-18:00 น." data-en="Welcome every business day Mon-Fri 9AM-6PM">ยินดีต้อนรับทุกวันทำการ<br>จันทร์-ศุกร์ 9:00-18:00 น.</div>
-    <div class="info-link" data-th="📍 กรุงเทพมหานคร, ไทย" data-en="📍 Bangkok, Thailand">📍 กรุงเทพมหานคร, ไทย</div>
-  </div>
-  <div class="info-card">
-    <div class="info-icon-wrap" style="background:rgba(249,115,22,.12)">
-      <span style="color:#f97316">📞</span>
-    </div>
-    <div class="info-label" data-th="CALL US" data-en="CALL US">CALL US</div>
-    <div class="info-title" data-th="โทรหาเรา" data-en="Call Us">โทรหาเรา</div>
-    <div class="info-desc" data-th="พร้อมรับสายทุกวันทำการ ยินดีให้คำปรึกษาฟรี" data-en="Available every business day, free consultation">พร้อมรับสายทุกวันทำการ<br>ยินดีให้คำปรึกษาฟรี</div>
-    <div class="info-link">📞 {{ promptpay_phone if promptpay_phone else 'ตั้งค่าเบอร์ในระบบ' }}</div>
-  </div>
-  <div class="info-card">
-    <div class="info-icon-wrap" style="background:rgba(249,115,22,.12)">
-      <span style="color:#f97316">✉️</span>
-    </div>
-    <div class="info-label" data-th="CONTACT US" data-en="CONTACT US">CONTACT US</div>
-    <div class="info-title" data-th="ส่งข้อความ" data-en="Send Message">ส่งข้อความ</div>
-    <div class="info-desc" data-th="ฝากข้อความไว้เราจะติดต่อกลับภายใน 24 ชั่วโมง" data-en="Leave a message and we'll reply within 24 hours">ฝากข้อความไว้เราจะตอบกลับ<br>ภายใน 24 ชั่วโมง</div>
-    <div class="info-link">✉️ info@{{ company_name }}.com</div>
-  </div>
+  <div class="info-card"><div class="info-icon-wrap" style="background:rgba(249,115,22,.12)"><span style="color:#f97316">🏠</span></div><div style="font-size:.65em;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:1.5px;margin-bottom:8px" data-th="VISIT US" data-en="VISIT US">VISIT US</div><div style="font-size:.94em;font-weight:700;color:var(--text);margin-bottom:10px" data-th="สำนักงานของเรา" data-en="Our Office">สำนักงานของเรา</div><div style="font-size:.78em;color:var(--text2);line-height:1.6;margin-bottom:8px" data-th="จันทร์-ศุกร์ 9:00-18:00 น." data-en="Mon-Fri 9AM-6PM">จันทร์-ศุกร์ 9:00-18:00 น.</div><div style="font-size:.8em;font-weight:700;color:#f97316" data-th="📍 กรุงเทพมหานคร, ไทย" data-en="📍 Bangkok, Thailand">📍 กรุงเทพมหานคร, ไทย</div></div>
+  <div class="info-card"><div class="info-icon-wrap" style="background:rgba(249,115,22,.12)"><span style="color:#f97316">📞</span></div><div style="font-size:.65em;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:1.5px;margin-bottom:8px" data-th="CALL US" data-en="CALL US">CALL US</div><div style="font-size:.94em;font-weight:700;color:var(--text);margin-bottom:10px" data-th="โทรหาเรา" data-en="Call Us">โทรหาเรา</div><div style="font-size:.78em;color:var(--text2);line-height:1.6;margin-bottom:8px" data-th="พร้อมให้คำปรึกษาฟรี" data-en="Free consultation">พร้อมรับสายทุกวันทำการ<br>ยินดีให้คำปรึกษาฟรี</div><div style="font-size:.8em;font-weight:700;color:#f97316">📞 {{ promptpay_phone or '—' }}</div></div>
+  <div class="info-card"><div class="info-icon-wrap" style="background:rgba(249,115,22,.12)"><span style="color:#f97316">✉️</span></div><div style="font-size:.65em;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:1.5px;margin-bottom:8px" data-th="CONTACT US" data-en="CONTACT US">CONTACT US</div><div style="font-size:.94em;font-weight:700;color:var(--text);margin-bottom:10px" data-th="ส่งข้อความ" data-en="Send Message">ส่งข้อความ</div><div style="font-size:.78em;color:var(--text2);line-height:1.6;margin-bottom:8px" data-th="ตอบกลับภายใน 24 ชั่วโมง" data-en="Reply within 24 hours">ฝากข้อความไว้เราจะตอบกลับ<br>ภายใน 24 ชั่วโมง</div><div style="font-size:.8em;font-weight:700;color:#f97316">✉️ info@shop.com</div></div>
 </div>
-
-<!-- Contact form section -->
 <div class="cf-wrap">
-  <!-- Left: quick info -->
   <div>
-    <div class="cf-card" style="padding:24px;margin-bottom:16px">
-      <div style="font-size:.9em;font-weight:700;color:var(--text);margin-bottom:14px" data-th="🕐 เวลาทำการ" data-en="🕐 Business Hours">🕐 เวลาทำการ</div>
+    <div class="cf-card" style="padding:22px;margin-bottom:14px">
+      <div style="font-size:.9em;font-weight:700;color:var(--text);margin-bottom:12px" data-th="🕐 เวลาทำการ" data-en="🕐 Business Hours">🕐 เวลาทำการ</div>
       <div style="display:flex;flex-direction:column;gap:8px">
-        {% set hours = [('จันทร์-ศุกร์','Mon-Fri','9:00 – 18:00'),('เสาร์','Saturday','9:00 – 14:00'),('อาทิตย์','Sunday','ปิด / Closed')] %}
-        {% for day_th, day_en, time in hours %}
-        <div style="display:flex;justify-content:space-between;align-items:center;font-size:.8em">
-          <span style="color:var(--text2)" data-th="{{ day_th }}" data-en="{{ day_en }}">{{ day_th }}</span>
-          <span style="color:{{ 'var(--red)' if 'ปิด' in time else 'var(--green)' }};font-weight:600">{{ time }}</span>
-        </div>
-        {% endfor %}
+        <div style="display:flex;justify-content:space-between;font-size:.8em"><span style="color:var(--text2)" data-th="จันทร์-ศุกร์" data-en="Mon-Fri">จันทร์-ศุกร์</span><span style="color:var(--green);font-weight:600">9:00 – 18:00</span></div>
+        <div style="display:flex;justify-content:space-between;font-size:.8em"><span style="color:var(--text2)" data-th="เสาร์" data-en="Saturday">เสาร์</span><span style="color:var(--amber);font-weight:600">9:00 – 14:00</span></div>
+        <div style="display:flex;justify-content:space-between;font-size:.8em"><span style="color:var(--text2)" data-th="อาทิตย์" data-en="Sunday">อาทิตย์</span><span style="color:var(--red);font-weight:600" data-th="ปิด" data-en="Closed">ปิด</span></div>
       </div>
     </div>
-
-    <div class="cf-card" style="padding:24px">
-      <div style="font-size:.9em;font-weight:700;color:var(--text);margin-bottom:14px" data-th="📱 ช่องทางอื่น" data-en="📱 Other Channels">📱 ช่องทางอื่น</div>
+    <div class="cf-card" style="padding:22px">
+      <div style="font-size:.9em;font-weight:700;color:var(--text);margin-bottom:12px" data-th="📱 ช่องทางอื่น" data-en="📱 Other Channels">📱 ช่องทางอื่น</div>
       <div style="display:flex;flex-direction:column;gap:10px">
-        <a href="/tracking" style="display:flex;align-items:center;gap:10px;padding:10px;background:var(--surface2);border-radius:var(--r-sm);border:1px solid var(--border);text-decoration:none;transition:all .18s" class="card-hover">
-          <span style="font-size:1.2em">🔍</span>
-          <div>
-            <div style="font-size:.82em;font-weight:600;color:var(--text)" data-th="ติดตามงาน" data-en="Track Order">ติดตามงาน</div>
-            <div style="font-size:.7em;color:var(--text3)" data-th="ตรวจสอบสถานะออเดอร์" data-en="Check your order status">ตรวจสอบสถานะออเดอร์</div>
-          </div>
-        </a>
-        <a href="/" style="display:flex;align-items:center;gap:10px;padding:10px;background:var(--surface2);border-radius:var(--r-sm);border:1px solid var(--border);text-decoration:none;transition:all .18s" class="card-hover">
-          <span style="font-size:1.2em">📝</span>
-          <div>
-            <div style="font-size:.82em;font-weight:600;color:var(--text)" data-th="สั่งงาน" data-en="Place Order">สั่งงาน</div>
-            <div style="font-size:.7em;color:var(--text3)" data-th="ส่งคำสั่งงานใหม่" data-en="Submit a new order">ส่งคำสั่งงานใหม่</div>
-          </div>
-        </a>
+        <a href="/tracking" style="display:flex;align-items:center;gap:10px;padding:10px;background:var(--surface2);border-radius:var(--r-sm);border:1px solid var(--border);text-decoration:none;transition:all .18s" class="card-hover"><span style="font-size:1.2em">🔍</span><div><div style="font-size:.82em;font-weight:600;color:var(--text)" data-th="ติดตามงาน" data-en="Track Order">ติดตามงาน</div><div style="font-size:.7em;color:var(--text3)" data-th="ตรวจสอบสถานะออเดอร์" data-en="Check order status">ตรวจสอบสถานะออเดอร์</div></div></a>
+        <a href="/" style="display:flex;align-items:center;gap:10px;padding:10px;background:var(--surface2);border-radius:var(--r-sm);border:1px solid var(--border);text-decoration:none;transition:all .18s" class="card-hover"><span style="font-size:1.2em">📝</span><div><div style="font-size:.82em;font-weight:600;color:var(--text)" data-th="สั่งงาน" data-en="Place Order">สั่งงาน</div><div style="font-size:.7em;color:var(--text3)" data-th="ส่งคำสั่งงานใหม่" data-en="Submit a new order">ส่งคำสั่งงานใหม่</div></div></a>
       </div>
     </div>
   </div>
-
-  <!-- Right: form -->
   <div class="cf-card">
     {% if sent %}
     <div class="sent-card" style="margin:20px">
       <div style="font-size:2.5em;margin-bottom:10px">✅</div>
       <div style="font-size:1.05em;font-weight:700;color:var(--green);margin-bottom:6px" data-th="ส่งข้อความเรียบร้อย!" data-en="Message Sent!">ส่งข้อความเรียบร้อย!</div>
-      <div style="font-size:.84em;color:var(--text2)" data-th="ขอบคุณที่ติดต่อมา เราจะตอบกลับโดยเร็วที่สุด" data-en="Thank you for reaching out. We'll get back to you shortly!">ขอบคุณที่ติดต่อมา เราจะตอบกลับโดยเร็วที่สุด</div>
-      <a href="/contact" class="btn btn-ghost btn-sm" style="margin-top:14px" data-th="ส่งข้อความอีกครั้ง" data-en="Send Another">ส่งข้อความอีกครั้ง</a>
+      <div style="font-size:.84em;color:var(--text2)" data-th="เราจะตอบกลับโดยเร็ว" data-en="We'll get back to you shortly">เราจะตอบกลับโดยเร็วที่สุด</div>
+      <a href="/contact" class="btn btn-ghost btn-sm" style="margin-top:14px" data-th="ส่งอีกครั้ง" data-en="Send Another">ส่งอีกครั้ง</a>
     </div>
     {% else %}
-    <div style="padding:24px 24px 0;border-bottom:1px solid var(--border);margin-bottom:20px">
+    <div style="padding:22px 22px 0;border-bottom:1px solid var(--border);margin-bottom:18px">
       <div style="font-size:.95em;font-weight:700;color:var(--text);margin-bottom:3px" data-th="📨 ส่งข้อความหาเรา" data-en="📨 Send Us a Message">📨 ส่งข้อความหาเรา</div>
-      <div style="font-size:.76em;color:var(--text3);padding-bottom:18px" data-th="เราจะตอบกลับภายใน 24 ชั่วโมง" data-en="We'll reply within 24 hours">เราจะตอบกลับภายใน 24 ชั่วโมง</div>
+      <div style="font-size:.76em;color:var(--text3);padding-bottom:16px" data-th="เราจะตอบกลับภายใน 24 ชั่วโมง" data-en="We'll reply within 24 hours">เราจะตอบกลับภายใน 24 ชั่วโมง</div>
     </div>
-    <form method="post" action="/contact" style="padding:0 24px 24px">
+    <form method="post" action="/contact" style="padding:0 22px 22px">
       <div class="field-row">
-        <div class="field">
-          <label data-th="ชื่อ *" data-en="Name *">ชื่อ *</label>
-          <input name="name" required class="input" placeholder="ชื่อของคุณ" data-ph-th="ชื่อของคุณ" data-ph-en="Your name">
-        </div>
-        <div class="field">
-          <label data-th="เบอร์โทร" data-en="Phone">เบอร์โทร</label>
-          <input name="phone" class="input" placeholder="081-234-5678">
-        </div>
+        <div class="field"><label data-th="ชื่อ *" data-en="Name *">ชื่อ *</label><input name="name" required class="input" placeholder="ชื่อของคุณ" data-ph-th="ชื่อของคุณ" data-ph-en="Your name"></div>
+        <div class="field"><label data-th="เบอร์โทร" data-en="Phone">เบอร์โทร</label><input name="phone" class="input" placeholder="081-234-5678"></div>
       </div>
-      <div class="field">
-        <label data-th="อีเมล *" data-en="Email *">อีเมล *</label>
-        <input name="email" type="email" class="input" placeholder="your@email.com">
-      </div>
-      <div class="field">
-        <label data-th="หัวข้อ" data-en="Subject">หัวข้อ</label>
-        <input name="subject" class="input" placeholder="หัวข้อที่ต้องการสอบถาม" data-ph-th="หัวข้อที่ต้องการสอบถาม" data-ph-en="Subject of your inquiry">
-      </div>
-      <div class="field">
-        <label data-th="ข้อความ *" data-en="Message *">ข้อความ *</label>
-        <textarea name="message" required class="input" style="min-height:110px"
-                  placeholder="รายละเอียดที่ต้องการสอบถาม..." data-ph-th="รายละเอียดที่ต้องการสอบถาม..." data-ph-en="Details of your inquiry..."></textarea>
-      </div>
-      <button type="submit" class="btn btn-primary" style="width:100%;justify-content:center;padding:11px">
-        <span data-th="📤 ส่งข้อความ" data-en="📤 Send Message">📤 ส่งข้อความ</span>
-      </button>
+      <div class="field"><label data-th="อีเมล *" data-en="Email *">อีเมล *</label><input name="email" type="email" class="input" placeholder="your@email.com"></div>
+      <div class="field"><label data-th="หัวข้อ" data-en="Subject">หัวข้อ</label><input name="subject" class="input" placeholder="หัวข้อที่ต้องการสอบถาม" data-ph-th="หัวข้อ..." data-ph-en="Subject..."></div>
+      <div class="field"><label data-th="ข้อความ *" data-en="Message *">ข้อความ *</label><textarea name="message" required class="input" style="min-height:110px" placeholder="รายละเอียด..." data-ph-th="รายละเอียด..." data-ph-en="Details..."></textarea></div>
+      <button type="submit" class="btn btn-primary" style="width:100%;justify-content:center;padding:11px"><span data-th="📤 ส่งข้อความ" data-en="📤 Send Message">📤 ส่งข้อความ</span></button>
     </form>
     {% endif %}
   </div>
 </div>
-
 {% endblock %}

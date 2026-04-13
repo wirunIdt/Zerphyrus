@@ -1,111 +1,59 @@
 {% extends "base.html" %}
 {% block title %}ชำระเงิน{% endblock %}
-{% block topbar_title %}ชำระเงิน{% endblock %}
-{% block extra_head %}
-<style>
-.pay-wrap{max-width:460px;margin:0 auto}
-.qr-card{padding:24px;text-align:center}
-.amount-big{font-size:1.9em;font-weight:700;color:var(--accent);font-family:var(--fm);margin:10px 0}
-.qr-img-box{background:var(--surface2);border:1px solid var(--border);border-radius:var(--r);padding:18px;display:inline-block;margin:14px 0}
-.qr-img-box img{display:block;max-width:220px;max-height:220px;margin:0 auto;border-radius:8px}
-.no-qr-box{background:var(--surface2);border:2px dashed var(--border);border-radius:var(--r);padding:28px 20px;text-align:center;margin:14px 0}
-.slip-zone{border:2px dashed var(--border);border-radius:var(--r);padding:20px;text-align:center;cursor:pointer;transition:all .2s}
-.slip-zone:hover{border-color:var(--accent);background:var(--accent-lt)}
-.slip-item{display:flex;align-items:center;gap:10px;padding:9px 0;border-bottom:1px solid var(--border);font-size:.82em}
-.slip-item:last-child{border-bottom:none}
-</style>
-{% endblock %}
+{% block topbar_title %}<span data-th="💳 ชำระเงิน" data-en="💳 Payment">💳 ชำระเงิน</span>{% endblock %}
+{% block extra_head %}<style>.pay-wrap{max-width:460px;margin:0 auto}.qr-card{padding:24px;text-align:center}.amount-big{font-size:1.9em;font-weight:700;color:var(--accent);font-family:var(--fm);margin:10px 0}.qr-img-box{background:var(--surface2);border:1px solid var(--border);border-radius:var(--r);padding:18px;display:inline-block;margin:14px 0}.qr-img-box img{display:block;max-width:220px;max-height:220px;margin:0 auto;border-radius:8px}.no-qr-box{background:var(--surface2);border:2px dashed var(--border);border-radius:var(--r);padding:28px 20px;text-align:center;margin:14px 0}.slip-zone{border:2px dashed var(--border);border-radius:var(--r);padding:20px;text-align:center;cursor:pointer;transition:all .2s}.slip-zone:hover{border-color:var(--accent);background:var(--accent-lt)}.slip-item{display:flex;align-items:center;gap:10px;padding:9px 0;border-bottom:1px solid var(--border);font-size:.82em}.slip-item:last-child{border-bottom:none}</style>{% endblock %}
 {% block content %}
 <div class="pay-wrap">
   <div class="card qr-card" style="margin-bottom:14px">
-    <div style="font-family:var(--fm);font-size:.7em;color:var(--accent);background:var(--accent-lt);padding:3px 12px;border-radius:var(--r-pill);display:inline-block;margin-bottom:10px">
-      {{ task.sn or task.id[:8] }}
-    </div>
-    <div style="font-size:1em;font-weight:700;color:var(--text);margin-bottom:3px">ชำระเงิน</div>
+    <div style="font-family:var(--fm);font-size:.7em;color:var(--accent);background:var(--accent-lt);padding:3px 12px;border-radius:var(--r-pill);display:inline-block;margin-bottom:10px">{{ task.sn or task.id[:8] }}</div>
+    <div style="font-size:1em;font-weight:700;color:var(--text);margin-bottom:3px" data-th="ชำระเงิน" data-en="Payment">ชำระเงิน</div>
     <div style="font-size:.8em;color:var(--text3);margin-bottom:2px">{{ task.customer.name }}</div>
     <div style="font-size:.84em;color:var(--text2)">{{ task.title[:50] }}</div>
-
     <div class="amount-big">฿{{ amount or '0' }}</div>
-
     {% if qr_image %}
-    <!-- Uploaded QR image -->
-    <div class="qr-img-box">
-      <img src="/uploads/{{ qr_image }}" alt="QR PromptPay">
-    </div>
-    {% if promptpay_phone %}
-    <div style="font-size:.76em;color:var(--text3);margin-bottom:4px">PromptPay: <strong style="color:var(--text)">{{ promptpay_phone }}</strong></div>
-    {% endif %}
-    <div style="font-size:.74em;color:var(--text3)">📱 สแกน QR ด้วยแอปธนาคาร</div>
-
+    <div class="qr-img-box"><img src="/uploads/{{ qr_image }}" alt="QR PromptPay"></div>
+    {% if promptpay_phone %}<div style="font-size:.76em;color:var(--text3);margin-bottom:4px">PromptPay: <strong style="color:var(--text)">{{ promptpay_phone }}</strong></div>{% endif %}
+    <div style="font-size:.74em;color:var(--text3)" data-th="📱 สแกน QR ด้วยแอปธนาคาร" data-en="📱 Scan QR with banking app">📱 สแกน QR ด้วยแอปธนาคาร</div>
     {% else %}
-    <!-- No QR uploaded yet -->
     <div class="no-qr-box">
       <div style="font-size:2.5em;opacity:.3;margin-bottom:8px">💳</div>
-      <div style="font-size:.85em;font-weight:600;color:var(--text);margin-bottom:4px">ยังไม่มี QR Code PromptPay</div>
-      {% if promptpay_phone %}
-      <div style="font-size:.82em;color:var(--text2);margin-bottom:4px">กรุณาโอนมาที่: <strong>{{ promptpay_phone }}</strong></div>
-      {% endif %}
-      <div style="font-size:.76em;color:var(--text3)">
-        Admin สามารถอัปโหลด QR ได้ที่ <a href="/admin/line_config" style="color:var(--accent)">ตั้งค่า LINE & PromptPay</a>
-      </div>
+      <div style="font-size:.85em;font-weight:600;color:var(--text);margin-bottom:4px" data-th="ยังไม่มี QR Code PromptPay" data-en="No QR Code yet">ยังไม่มี QR Code PromptPay</div>
+      {% if promptpay_phone %}<div style="font-size:.82em;color:var(--text2);margin-bottom:4px">กรุณาโอนมาที่: <strong>{{ promptpay_phone }}</strong></div>{% endif %}
+      <div style="font-size:.76em;color:var(--text3)">Admin อัปโหลด QR ได้ที่ <a href="/admin/line_config" style="color:var(--accent)" data-th="ตั้งค่า" data-en="Settings">ตั้งค่า</a></div>
     </div>
     {% endif %}
   </div>
-
   <!-- Upload slip -->
   <div class="card card-p">
-    <div class="sec-title" style="margin-bottom:12px">📤 อัปโหลดสลิปการโอน</div>
+    <div class="sec-title" style="margin-bottom:12px" data-th="📤 อัปโหลดสลิปการโอน" data-en="📤 Upload Payment Slip">📤 อัปโหลดสลิปการโอน</div>
     <form method="post" action="/upload_slip/{{ task.id }}" enctype="multipart/form-data">
       <div class="slip-zone" onclick="document.getElementById('slipFile').click()" id="slipZone">
         <div style="font-size:2em;opacity:.4;margin-bottom:8px">📤</div>
-        <div style="font-size:.86em;font-weight:600;color:var(--text2);margin-bottom:3px">คลิกหรือลากสลิปมาวาง</div>
-        <div style="font-size:.74em;color:var(--text3)">JPG, PNG ขนาดไม่เกิน 10MB</div>
+        <div style="font-size:.86em;font-weight:600;color:var(--text2);margin-bottom:3px" data-th="คลิกหรือลากสลิปมาวาง" data-en="Click or drag slip here">คลิกหรือลากสลิปมาวาง</div>
+        <div style="font-size:.74em;color:var(--text3)" data-th="JPG, PNG ขนาดไม่เกิน 10MB" data-en="JPG, PNG max 10MB">JPG, PNG ขนาดไม่เกิน 10MB</div>
       </div>
       <input type="file" id="slipFile" name="slip" accept="image/*" style="display:none" onchange="previewSlip(this)">
-      <div id="slipPreview" style="display:none;margin-top:10px">
-        <img id="slipImg" style="max-width:100%;border-radius:var(--r-sm);border:1px solid var(--border)">
-      </div>
-      <div class="field" style="margin-top:12px">
-        <label>จำนวนเงิน (บาท)</label>
-        <input name="amount" type="number" step="0.01" value="{{ amount }}" class="input" placeholder="0.00">
-      </div>
-      <button type="submit" class="btn btn-success" style="width:100%;justify-content:center;padding:11px;margin-top:4px">
-        📤 ส่งสลิปยืนยันการชำระ
-      </button>
+      <div id="slipPreview" style="display:none;margin-top:10px"><img id="slipImg" style="max-width:100%;border-radius:var(--r-sm);border:1px solid var(--border)"></div>
+      <div class="field" style="margin-top:12px"><label data-th="จำนวนเงิน (บาท)" data-en="Amount (THB)">จำนวนเงิน (บาท)</label><input name="amount" type="number" step="0.01" value="{{ amount or '' }}" class="input" placeholder="0.00"></div>
+      <button type="submit" class="btn btn-success" style="width:100%;justify-content:center;padding:11px;margin-top:4px" data-th="📤 ส่งสลิปยืนยัน" data-en="📤 Submit Slip">📤 ส่งสลิปยืนยัน</button>
     </form>
-
     {% if slips %}
     <div style="margin-top:16px;border-top:1px solid var(--border);padding-top:14px">
-      <div style="font-size:.76em;font-weight:600;color:var(--text3);margin-bottom:10px">สลิปที่ส่งแล้ว</div>
+      <div style="font-size:.76em;font-weight:600;color:var(--text3);margin-bottom:10px" data-th="สลิปที่ส่งแล้ว" data-en="Submitted Slips">สลิปที่ส่งแล้ว</div>
       {% for s in slips %}
       <div class="slip-item">
-        <a href="/uploads/{{ s.file }}" target="_blank">
-          <img src="/uploads/{{ s.file }}" style="width:40px;height:40px;object-fit:cover;border-radius:6px;border:1px solid var(--border)">
-        </a>
-        <div style="flex:1">
-          <div style="font-weight:600">{% if s.amount %}฿{{ s.amount }}{% else %}—{% endif %}</div>
-          <div style="color:var(--text3);font-size:.88em">{{ s.uploaded_at[:10] if s.uploaded_at else '—' }}</div>
-        </div>
-        {% if s.status=='approved' %}<span class="badge badge-green">✅ อนุมัติ</span>
-        {% elif s.status=='rejected' %}<span class="badge badge-red">❌ ปฏิเสธ</span>
-        {% else %}<span class="badge badge-amber">⏳ รอตรวจ</span>{% endif %}
+        <a href="/uploads/{{ s.file }}" target="_blank"><img src="/uploads/{{ s.file }}" style="width:40px;height:40px;object-fit:cover;border-radius:6px;border:1px solid var(--border)"></a>
+        <div style="flex:1"><div style="font-weight:600">{% if s.amount %}฿{{ s.amount }}{% else %}—{% endif %}</div><div style="color:var(--text3);font-size:.88em">{{ s.uploaded_at[:10] if s.uploaded_at else '—' }}</div></div>
+        {% if s.status=='approved' %}<span class="badge badge-green">✅ <span data-th="อนุมัติ" data-en="Approved">อนุมัติ</span></span>
+        {% elif s.status=='rejected' %}<span class="badge badge-red">❌ <span data-th="ปฏิเสธ" data-en="Rejected">ปฏิเสธ</span></span>
+        {% else %}<span class="badge badge-amber">⏳ <span data-th="รอตรวจ" data-en="Pending">รอตรวจ</span></span>{% endif %}
       </div>
       {% endfor %}
     </div>
     {% endif %}
   </div>
 </div>
-
 <script>
-function previewSlip(input) {
-  if (!input.files[0]) return;
-  const r = new FileReader();
-  r.onload = e => {
-    document.getElementById('slipImg').src = e.target.result;
-    document.getElementById('slipPreview').style.display = 'block';
-    document.getElementById('slipZone').style.display = 'none';
-  };
-  r.readAsDataURL(input.files[0]);
-}
+function previewSlip(input){if(!input.files[0])return;const r=new FileReader();r.onload=e=>{document.getElementById('slipImg').src=e.target.result;document.getElementById('slipPreview').style.display='block';document.getElementById('slipZone').style.display='none'};r.readAsDataURL(input.files[0])}
 </script>
 {% endblock %}
