@@ -1,0 +1,27 @@
+{% extends "base.html" %}
+{% block title %}โปรไฟล์ของฉัน{% endblock %}
+{% block topbar_title %}<span data-th="⚙️ โปรไฟล์ของฉัน" data-en="⚙️ My Profile">⚙️ โปรไฟล์ของฉัน</span>{% endblock %}
+{% block content %}
+<div style="max-width:500px;margin:0 auto">
+  {% if message %}<div class="card card-p" style="margin-bottom:14px;background:var(--green-lt);border:1px solid var(--green)"><span style="color:var(--green);font-weight:600">✅ {{ message }}</span></div>{% endif %}
+  {% if error %}<div class="card card-p" style="margin-bottom:14px;background:var(--red-lt);border:1px solid var(--red)"><span style="color:var(--red);font-weight:600">❌ {{ error }}</span></div>{% endif %}
+  <div class="card card-p">
+    <div class="sec-title" style="margin-bottom:16px" data-th="แก้ไขข้อมูลส่วนตัว" data-en="Edit Profile">แก้ไขข้อมูลส่วนตัว</div>
+    <form method="post" action="/customer/profile">
+      <div class="field"><label data-th="ชื่อ-นามสกุล" data-en="Full Name">ชื่อ-นามสกุล</label><input name="name" class="input" value="{{ customer.name or '' }}"></div>
+      <div class="field"><label data-th="เบอร์โทร (เปลี่ยนไม่ได้)" data-en="Phone (cannot change)">เบอร์โทร</label><input class="input" value="{{ customer.phone }}" disabled style="opacity:.6"></div>
+      <div class="field"><label data-th="อีเมล" data-en="Email">อีเมล</label><input name="email" type="email" class="input" value="{{ customer.email or '' }}" placeholder="your@email.com"></div>
+      <hr class="div" style="margin:16px 0">
+      <div style="font-size:.76em;font-weight:600;color:var(--text2);margin-bottom:10px" data-th="🔒 เปลี่ยนรหัสผ่าน (ว่างไว้ = ไม่เปลี่ยน)" data-en="🔒 Change Password (leave blank = no change)">🔒 เปลี่ยนรหัสผ่าน <span style="color:var(--text3)">(ว่างไว้ = ไม่เปลี่ยน)</span></div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
+        <div class="field"><label data-th="รหัสผ่านใหม่" data-en="New Password">รหัสผ่านใหม่</label><input name="new_password" type="password" class="input" placeholder="อย่างน้อย 6 ตัว" minlength="6"></div>
+        <div class="field"><label data-th="ยืนยันรหัสผ่านใหม่" data-en="Confirm New">ยืนยัน</label><input name="new_password2" type="password" class="input" placeholder="พิมพ์อีกครั้ง"></div>
+      </div>
+      <div style="display:flex;gap:8px;margin-top:6px">
+        <button type="submit" class="btn btn-primary" data-th="💾 บันทึก" data-en="💾 Save">💾 บันทึก</button>
+        <a href="/customer/dashboard" class="btn btn-ghost" data-th="← กลับ" data-en="← Back">← กลับ</a>
+      </div>
+    </form>
+  </div>
+</div>
+{% endblock %}

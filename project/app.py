@@ -27,10 +27,11 @@ from queue_manager import (
 )
 
 try:
-    from pdf_generator import generate_order_pdf
+    from pdf_generator import generate_order_pdf, generate_spec_sheet
     PDF_ENABLED = True
 except Exception:
     PDF_ENABLED = False
+    generate_spec_sheet = None
 
 try:
     from line_handler import handle_events, verify_signature
@@ -63,8 +64,10 @@ QR_FOLDER        = os.path.join(UPLOAD_FOLDER, 'qr')
 SLIP_FOLDER      = os.path.join(UPLOAD_FOLDER, 'slips')
 PRODUCT_IMG_FOLDER = os.path.join(UPLOAD_FOLDER, 'products')
 ALLOWED_IMG      = {'png', 'jpg', 'jpeg', 'gif', 'webp'}
+MODEL_3D_FOLDER  = os.path.join(UPLOAD_FOLDER, '3d_models')
+ALLOWED_3D       = {'stl', 'obj', 'step', 'stp', '3mf', 'iges', 'igs', 'f3d', 'blend', 'fbx', 'zip'}
 
-for d in [UPLOAD_FOLDER, QR_FOLDER, SLIP_FOLDER, PRODUCT_IMG_FOLDER]:
+for d in [UPLOAD_FOLDER, QR_FOLDER, SLIP_FOLDER, PRODUCT_IMG_FOLDER, MODEL_3D_FOLDER]:
     os.makedirs(d, exist_ok=True)
 
 PROMPTPAY_PHONE  = os.environ.get('PROMPTPAY_PHONE', '0812345678')
@@ -259,21 +262,93 @@ def model():
 
 @app.route('/model/submit', methods=['POST'])
 def model_submit():
-    """Separate POST route for 3D order form submission."""
-    tasks = read_tasks()
-    task = {
-        'id': str(int(datetime.now().timestamp() * 1000)), 'sn': next_sn(),
-        'customer': {'name': request.form.get('customer_name',''), 'phone': request.form.get('customer_phone',''), 'email': request.form.get('customer_email','')},
-        'title': f"[3D] {request.form.get('task_title','')}",
-        'description': request.form.get('task_description',''),
-        'priority': request.form.get('priority','medium'), 'deadline': request.form.get('deadline',''),
-        'status': 'pending', 'createdBy': 'ลูกค้า (3D)',
-        'createdAt': datetime.now().isoformat(), 'updatedAt': datetime.now().isoformat(),
+    """3D printing order - full spec + file upload."""
+    saved_files = []
+    for fkey in ['model_file', 'ref_image']:
+        f = request.files.get(fkey)
+        if f and f.filename:
+            ext = f.filename.rsplit('.', 1)[-1].lower()
+            allowed = ALLOWED_3D if fkey == 'model_file' else ALLOWED_IMG
+            if ext in allowed:
+                fname = str(int(datetime.now().timestamp()*1000)) + '_' + fkey + '.' + ext
+                f.save(os.path.join(MODEL_3D_FOLDER, fname))
+                saved_files.append({'field': fkey, 'filename': fname, 'original': f.filename, 'ext': ext})
+
+    specs_3d = {
+        'material': request.form.get('material', 'PLA'),
+        'color':    request.form.get('color', ''),
+        'quality':  request.form.get('quality', 'standard'),
+        'infill':   request.form.get('infill', '20'),
+        'finish':   request.form.get('finish', 'as_printed'),
+        'support':  request.form.get('support', 'auto'),
+        'quantity': request.form.get('quantity', '1'),
+        'size_x':   request.form.get('size_x', ''),
+        'size_y':   request.form.get('size_y', ''),
+        'size_z':   request.form.get('size_z', ''),
+        'scale':    request.form.get('scale', '100'),
+        'use_case': request.form.get('use_case', ''),
+        'budget':   request.form.get('budget', ''),
+        'files':    saved_files,
     }
-    tasks.insert(0, task); write_tasks(tasks); code = create_ticket(task)
+
+    qty = specs_3d['quantity']
+    mat = specs_3d['material']
+    q_map = {'draft':'Draft 0.3mm','standard':'Standard 0.2mm','fine':'Fine 0.1mm','ultra':'Ultra 0.05mm'}
+    q = q_map.get(specs_3d['quality'], specs_3d['quality'])
+    color_val = specs_3d.get('color') or 'ไม่ระบุ'
+
+    lines = [
+        "วัสดุ: " + mat + " | สี: " + color_val,
+        "คุณภาพ: " + q + " | Infill: " + specs_3d['infill'] + "%",
+        "ผิว: " + specs_3d['finish'] + " | Support: " + specs_3d['support'],
+        "จำนวน: " + qty + " ชิ้น",
+    ]
+    if specs_3d['size_x'] or specs_3d['size_y'] or specs_3d['size_z']:
+        lines.append("ขนาด: " + specs_3d['size_x'] + "x" + specs_3d['size_y'] + "x" + specs_3d['size_z'] + " mm")
+    if specs_3d['scale'] and specs_3d['scale'] != '100':
+        lines[-1] = lines[-1] + " (scale " + specs_3d['scale'] + "%)"
+    if specs_3d['use_case']:
+        lines.append("วัตถุประสงค์: " + specs_3d['use_case'])
+    if specs_3d['budget']:
+        lines.append("งบประมาณ: " + specs_3d['budget'])
+    extra_desc = request.form.get('task_description', '')
+    if extra_desc:
+        lines.append("")
+        lines.append("รายละเอียดเพิ่มเติม:")
+        lines.append(extra_desc)
+    if saved_files:
+        lines.append("")
+        for sf in saved_files:
+            lines.append("📎 " + sf['field'] + ": " + sf['original'])
+    auto_desc = "\n".join(lines)
+
+    tasks = read_tasks()
+    title = request.form.get('task_title', '')
+    task = {
+        'id':       str(int(datetime.now().timestamp() * 1000)),
+        'sn':       next_sn(),
+        'customer': {
+            'name':  request.form.get('customer_name', ''),
+            'phone': request.form.get('customer_phone', ''),
+            'email': request.form.get('customer_email', ''),
+        },
+        'title':       "[3D] " + title + " (" + mat + ", " + qty + " ชิ้น)",
+        'description': auto_desc,
+        'priority':    request.form.get('priority', 'medium'),
+        'deadline':    request.form.get('deadline', ''),
+        'status':      'pending',
+        'createdBy':   'ลูกค้า (3D)',
+        'specs_3d':    specs_3d,
+        'createdAt':   datetime.now().isoformat(),
+        'updatedAt':   datetime.now().isoformat(),
+    }
+    tasks.insert(0, task)
+    write_tasks(tasks)
+    code = create_ticket(task)
     return render_template('model.html', success=True, ticket_code=code,
-                           customer_name=task['customer']['name'], task_id=task['id'],
-                           order_sn=task.get('sn',''), active_page='model')
+                           customer_name=task['customer']['name'],
+                           task_id=task['id'], order_sn=task.get('sn', ''),
+                           saved_files=saved_files, active_page='model')
 
 @app.route('/tracking')
 def tracking():
@@ -792,6 +867,154 @@ def export_excel():
         resp.headers['Content-Disposition'] = f'attachment; filename="{fname}"'
         return resp
     except Exception as e: return f'เกิดข้อผิดพลาด: {e}', 500
+
+# ── Spec Sheet PDF ────────────────────────────────────────────────────────────
+@app.route('/admin/spec_sheet/<task_id>')
+@admin_required
+def admin_spec_sheet(task_id):
+    if not PDF_ENABLED or not generate_spec_sheet:
+        return 'PDF ไม่พร้อมใช้งาน', 500
+    tasks = read_tasks()
+    task  = next((t for t in tasks if t['id'] == task_id), None)
+    if not task: return 'ไม่พบ', 404
+    pdf_bytes = generate_spec_sheet(task, COMPANY_NAME)
+    resp = make_response(pdf_bytes)
+    resp.headers['Content-Type'] = 'application/pdf'
+    resp.headers['Content-Disposition'] = f'inline; filename="spec_{task_id[-6:]}.pdf"'
+    return resp
+
+# ── 3D File viewer (list files for a task) ────────────────────────────────────
+@app.route('/admin/task_files/<task_id>')
+@admin_required
+def admin_task_files(task_id):
+    tasks = read_tasks()
+    task  = next((t for t in tasks if t['id'] == task_id), None)
+    if not task: return jsonify({'error': 'not found'}), 404
+    files = task.get('specs_3d', {}).get('files', [])
+    # Build URLs
+    file_list = []
+    for sf in files:
+        fname = sf.get('filename', '')
+        path  = os.path.join(MODEL_3D_FOLDER, fname)
+        file_list.append({
+            **sf,
+            'url':    f'/uploads/3d_models/{fname}',
+            'exists': os.path.exists(path),
+            'size':   os.path.getsize(path) if os.path.exists(path) else 0,
+        })
+    return jsonify({'task_id': task_id, 'title': task.get('title',''), 'files': file_list})
+
+# ── Customer Accounts ──────────────────────────────────────────────────────────
+def read_customers():  return _r('customers.json', {})
+def write_customers(d): _w('customers.json', d)
+
+_init('customers.json', {})
+
+import hashlib as _hashlib
+def _hash_pw(pw): return _hashlib.sha256(pw.encode()).hexdigest()
+
+@app.route('/customer/register', methods=['GET','POST'])
+def customer_register():
+    error = None; success = False
+    if request.method == 'POST':
+        name  = request.form.get('name','').strip()
+        phone = request.form.get('phone','').strip()
+        email = request.form.get('email','').strip().lower()
+        pw    = request.form.get('password','')
+        pw2   = request.form.get('password2','')
+        customers = read_customers()
+        if not name or not phone or not pw:
+            error = 'กรุณากรอกข้อมูลให้ครบถ้วน'
+        elif phone in customers:
+            error = 'เบอร์โทรนี้ลงทะเบียนแล้ว กรุณาเข้าสู่ระบบ'
+        elif len(pw) < 6:
+            error = 'รหัสผ่านต้องมีอย่างน้อย 6 ตัวอักษร'
+        elif pw != pw2:
+            error = 'รหัสผ่านไม่ตรงกัน'
+        else:
+            customers[phone] = {
+                'name': name, 'phone': phone, 'email': email,
+                'password': _hash_pw(pw),
+                'created_at': datetime.now().isoformat(),
+            }
+            write_customers(customers)
+            session['customer_phone'] = phone
+            session['customer_name']  = name
+            return redirect('/customer/dashboard')
+    return render_template('customer_register.html', error=error, active_page='register')
+
+@app.route('/customer/login', methods=['GET','POST'])
+def customer_login():
+    error = None
+    if request.method == 'POST':
+        phone = request.form.get('phone','').strip()
+        pw    = request.form.get('password','')
+        customers = read_customers()
+        c = customers.get(phone)
+        if not c or c['password'] != _hash_pw(pw):
+            error = 'เบอร์โทรหรือรหัสผ่านไม่ถูกต้อง'
+        else:
+            session['customer_phone'] = phone
+            session['customer_name']  = c['name']
+            return redirect('/customer/dashboard')
+    return render_template('customer_login.html', error=error, active_page='clogin')
+
+@app.route('/customer/logout')
+def customer_logout():
+    session.pop('customer_phone', None)
+    session.pop('customer_name',  None)
+    return redirect('/')
+
+@app.route('/customer/dashboard')
+def customer_dashboard():
+    phone = session.get('customer_phone')
+    if not phone: return redirect('/customer/login')
+    tasks = [t for t in read_tasks() if t['customer']['phone'] == phone]
+    tasks.sort(key=lambda t: t.get('createdAt',''), reverse=True)
+    customers = read_customers()
+    customer  = customers.get(phone, {})
+    slips     = read_slips()
+    # Attach slip info
+    tasks_with_info = []
+    for t in tasks:
+        tc = dict(t)
+        tc['slips'] = slips.get(t['id'], [])
+        tasks_with_info.append(tc)
+    return render_template('customer_dashboard.html',
+                           customer=customer, tasks=tasks_with_info,
+                           active_page='customer_dash')
+
+@app.route('/customer/profile', methods=['GET','POST'])
+def customer_profile():
+    phone = session.get('customer_phone')
+    if not phone: return redirect('/customer/login')
+    customers = read_customers()
+    customer  = customers.get(phone, {})
+    message   = None; error = None
+    if request.method == 'POST':
+        name  = request.form.get('name','').strip()
+        email = request.form.get('email','').strip()
+        pw    = request.form.get('new_password','')
+        pw2   = request.form.get('new_password2','')
+        if name:
+            customer['name']  = name
+            session['customer_name'] = name
+        if email:
+            customer['email'] = email
+        if pw:
+            if len(pw) < 6:
+                error = 'รหัสผ่านต้องมีอย่างน้อย 6 ตัวอักษร'
+            elif pw != pw2:
+                error = 'รหัสผ่านใหม่ไม่ตรงกัน'
+            else:
+                customer['password'] = _hash_pw(pw)
+                message = 'อัปเดตข้อมูลเรียบร้อย'
+        if not error:
+            customers[phone] = customer
+            write_customers(customers)
+            message = message or 'อัปเดตข้อมูลเรียบร้อย'
+    return render_template('customer_profile.html', customer=customer,
+                           message=message, error=error, active_page='customer_profile')
 
 # ── Startup ────────────────────────────────────────────────────────────────────
 with app.app_context():

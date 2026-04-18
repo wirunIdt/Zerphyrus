@@ -116,6 +116,16 @@
     <a href="/model" class="sb-item {% if active_page=='model' %}active{% endif %}"><span class="ic">🖨️</span><span data-th="สั่งงาน 3D" data-en="3D Order">สั่งงาน 3D</span></a>
     <a href="/tracking" class="sb-item {% if active_page=='tracking' %}active{% endif %}"><span class="ic">🔍</span><span data-th="ติดตามงาน" data-en="Track Order">ติดตามงาน</span></a>
     <a href="/checkin" class="sb-item {% if active_page=='checkin' %}active{% endif %}"><span class="ic">✅</span><span data-th="Check-in" data-en="Check-in">Check-in</span></a>
+
+    <div class="sb-sec" data-th="บัญชีลูกค้า" data-en="CUSTOMER">บัญชีลูกค้า</div>
+    {% if session.customer_phone %}
+    <a href="/customer/dashboard" class="sb-item {% if active_page=='customer_dash' %}active{% endif %}"><span class="ic">📦</span><span data-th="ออเดอร์ของฉัน" data-en="My Orders">ออเดอร์ของฉัน</span></a>
+    <a href="/customer/profile" class="sb-item {% if active_page=='customer_profile' %}active{% endif %}"><span class="ic">⚙️</span><span data-th="โปรไฟล์" data-en="Profile">โปรไฟล์</span></a>
+    <a href="/customer/logout" class="sb-item" style="color:var(--amber)"><span class="ic">🚪</span><span data-th="ออกจากระบบ (ลูกค้า)" data-en="Customer Logout">ออก (ลูกค้า)</span></a>
+    {% else %}
+    <a href="/customer/login" class="sb-item {% if active_page=='clogin' %}active{% endif %}"><span class="ic">👤</span><span data-th="เข้าสู่ระบบลูกค้า" data-en="Customer Login">เข้าสู่ระบบลูกค้า</span></a>
+    <a href="/customer/register" class="sb-item {% if active_page=='register' %}active{% endif %}"><span class="ic">✨</span><span data-th="สมัครสมาชิก" data-en="Register">สมัครสมาชิก</span></a>
+    {% endif %}
     {% if session.username %}
     <div class="sb-sec" data-th="แอดมิน" data-en="ADMIN">แอดมิน</div>
     <a href="/admin" class="sb-item {% if active_page=='admin' %}active{% endif %}"><span class="ic">📊</span><span data-th="Dashboard" data-en="Dashboard">Dashboard</span></a>

@@ -1,0 +1,31 @@
+{% extends "base.html" %}
+{% block title %}สมัครสมาชิก{% endblock %}
+{% block topbar_title %}<span data-th="✨ สมัครสมาชิก" data-en="✨ Register">✨ สมัครสมาชิก</span>{% endblock %}
+{% block content %}
+<div style="max-width:460px;margin:30px auto">
+  <div style="text-align:center;margin-bottom:20px">
+    <div style="width:56px;height:56px;border-radius:16px;background:linear-gradient(135deg,#0ea5e9,#06b6d4);display:flex;align-items:center;justify-content:center;font-size:1.5em;margin:0 auto 12px;box-shadow:0 4px 20px rgba(14,165,233,.35)">✨</div>
+    <div style="font-size:1.05em;font-weight:700;color:var(--text)" data-th="สมัครสมาชิกลูกค้า" data-en="Create Customer Account">สมัครสมาชิกลูกค้า</div>
+    <div style="font-size:.78em;color:var(--text3);margin-top:3px" data-th="ติดตามออเดอร์ ดูประวัติ และจัดการงานของคุณ" data-en="Track orders, view history, manage your jobs">ติดตามออเดอร์ ดูประวัติ และจัดการงานของคุณ</div>
+  </div>
+  {% if error %}<div class="card card-p" style="margin-bottom:14px;background:var(--red-lt);border:1px solid var(--red)"><div style="font-size:.82em;color:var(--red);font-weight:600">❌ {{ error }}</div></div>{% endif %}
+  <div class="card card-p">
+    <form method="post" action="/customer/register">
+      <div class="field"><label data-th="ชื่อ-นามสกุล *" data-en="Full Name *">ชื่อ-นามสกุล *</label><input name="name" required class="input" placeholder="สมชาย ใจดี" autofocus></div>
+      <div class="field"><label data-th="เบอร์โทรศัพท์ * (ใช้เป็น username)" data-en="Phone * (used as username)">เบอร์โทรศัพท์ * <span style="font-size:.75em;color:var(--text3)">(ใช้เป็น username)</span></label><input name="phone" required class="input" placeholder="081-234-5678"></div>
+      <div class="field"><label data-th="อีเมล (ไม่บังคับ)" data-en="Email (optional)">อีเมล</label><input name="email" type="email" class="input" placeholder="your@email.com"></div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
+        <div class="field"><label data-th="รหัสผ่าน *" data-en="Password *">รหัสผ่าน *</label><input name="password" type="password" required minlength="6" class="input" placeholder="อย่างน้อย 6 ตัว"></div>
+        <div class="field"><label data-th="ยืนยันรหัสผ่าน *" data-en="Confirm Password *">ยืนยันรหัสผ่าน *</label><input name="password2" type="password" required class="input" placeholder="พิมพ์อีกครั้ง"></div>
+      </div>
+      <button type="submit" class="btn btn-primary" style="width:100%;justify-content:center;padding:11px;margin-top:4px;background:linear-gradient(135deg,#0ea5e9,#06b6d4);box-shadow:0 4px 12px rgba(14,165,233,.3)">
+        <span data-th="✨ สมัครสมาชิก" data-en="✨ Create Account">✨ สมัครสมาชิก</span>
+      </button>
+    </form>
+    <div style="text-align:center;margin-top:14px;font-size:.8em;color:var(--text3)">
+      <span data-th="มีบัญชีแล้ว?" data-en="Already have an account?">มีบัญชีแล้ว?</span>
+      <a href="/customer/login" style="color:var(--accent);font-weight:600;margin-left:4px" data-th="เข้าสู่ระบบ" data-en="Login">เข้าสู่ระบบ</a>
+    </div>
+  </div>
+</div>
+{% endblock %}

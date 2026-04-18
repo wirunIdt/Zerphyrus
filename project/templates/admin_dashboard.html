@@ -111,6 +111,8 @@
             <option value="cancelled" {%if t.status=='cancelled'%}selected{%endif%}>❌ ยกเลิก</option>
           </select>
           <a href="/admin/order_pdf/{{ t.id }}?qr=1" class="btn btn-ghost btn-xs">📄 PDF</a>
+          {% if t.specs_3d %}<a href="/admin/spec_sheet/{{ t.id }}" target="_blank" class="btn btn-ghost btn-xs" style="color:#8b5cf6">📋 Spec</a>{% endif %}
+          {% if t.specs_3d and t.specs_3d.files %}<button class="btn btn-ghost btn-xs" style="color:#0ea5e9" onclick="viewFiles('{{ t.id }}','{{ t.title|e }}')">📁 ไฟล์ ({{ t.specs_3d.files|length }})</button>{% endif %}
           <a href="/payment/{{ t.id }}" class="btn btn-ghost btn-xs" style="color:var(--green)">💳 ชำระ</a>
           <button class="btn btn-ghost btn-xs" style="color:var(--red)" onclick="delTask('{{ t.id }}','{{ t.title|e }}',this)">🗑</button>
         </div>
@@ -370,5 +372,41 @@ async function saveCalSettings(e){e.preventDefault();const btn=document.getEleme
 async function addCalDate(e){e.preventDefault();const form=document.getElementById('add-date-form');const btn=form.querySelector('button[type=submit]');const ds=form.querySelector('[name=date]').value;const type=form.querySelector('[name=type]').value;const note=form.querySelector('[name=note]')?.value||'';if(!ds){toast('เลือกวันที่','warning');return}setLoading(btn,true);try{const d=await postFD('/admin/calendar/add_date',{date:ds,type,note});if(d.status==='ok'){toast('เพิ่มวัน '+ds);const list=document.getElementById('cal-dates-list');if(list){const icons={holiday:'🔴',off:'🟡',extra:'🟢'};const div=document.createElement('div');div.id='cd-'+ds;div.className='cal-date-row';div.innerHTML=`<span>${icons[type]||'📌'} <strong>${ds}</strong>${note?` <span style="color:var(--text3)">${note}</span>`:''}</span><button class="btn btn-ghost btn-xs" style="color:var(--red)" onclick="removeCalDate('${ds}',this)">✕</button>`;list.appendChild(div);form.reset()}}}catch(e){toast('Error','error')}setLoading(btn,false)}
 async function removeCalDate(ds,btn){setLoading(btn,true);try{const d=await postFD('/admin/calendar/remove_date',{date:ds});if(d.status==='ok'){const row=document.getElementById('cd-'+ds)||btn.closest('.cal-date-row');if(row){row.style.transition='.3s';row.style.opacity='0';setTimeout(()=>row.remove(),300)}toast('ลบวัน '+ds)}}catch(e){toast('Error','error')}setLoading(btn,false)}
 async function verifySlip(tid,idx,action,btn){const note=document.getElementById('sn-'+tid+'-'+idx)?.value||'';setLoading(btn,true);try{const d=await postFD('/admin/verify_slip',{task_id:tid,slip_idx:idx,action,note});if(d.status==='ok'){const actDiv=btn.closest('[style*="display:flex"]');const approved=action==='approve';if(actDiv)actDiv.innerHTML=approved?`<span class="badge badge-green">✅ อนุมัติ${note?' · '+note:''}</span>`:`<span class="badge badge-red">❌ ปฏิเสธ${note?' · '+note:''}</span>`;const tabs=[...document.querySelectorAll('.tab-btn')];const slipTab=tabs.find(b=>b.textContent.includes('สลิป')||b.textContent.includes('Slips'));if(slipTab){const badge=slipTab.querySelector('.sb-badge');if(badge){const n=(parseInt(badge.textContent)||0)-1;if(n<=0)badge.remove();else badge.textContent=n}}toast(approved?'✅ อนุมัติแล้ว':'❌ ปฏิเสธแล้ว',approved?'success':'info')}}catch(e){toast('Error','error')}setLoading(btn,false)}
+
+/* ── File viewer modal ── */
+function viewFiles(tid, title) {
+  fetch('/admin/task_files/' + tid)
+    .then(r => r.json())
+    .then(data => {
+      let html = `<div style="position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:999;display:flex;align-items:center;justify-content:center;backdrop-filter:blur(4px)" id="fileModal" onclick="if(event.target===this)this.remove()">
+        <div style="background:var(--surface);border:1px solid var(--border);border-radius:var(--r);padding:22px;width:100%;max-width:500px;max-height:80vh;overflow-y:auto;box-shadow:var(--sh-lg)">
+          <div style="font-size:.95em;font-weight:700;color:var(--text);margin-bottom:16px;padding-bottom:10px;border-bottom:1px solid var(--border)">
+            📁 ไฟล์แนบ — ${data.title}
+          </div>`;
+      if (data.files && data.files.length) {
+        data.files.forEach(f => {
+          const mb = f.size ? (f.size/1024/1024).toFixed(1) + ' MB' : '—';
+          const extIcon = {'stl':'🔺','obj':'🟦','step':'⚙️','stp':'⚙️','3mf':'📦','iges':'📐','igs':'📐','f3d':'🔧','blend':'🌀','zip':'🗜️','jpg':'🖼️','png':'🖼️','pdf':'📄'}[f.ext] || '📎';
+          const dl = f.exists ? `<a href="${f.url}" download class="btn btn-primary btn-xs">⬇️ ดาวน์โหลด</a>` : '<span style="color:var(--red);font-size:.72em">ไม่พบไฟล์</span>';
+          html += `<div style="display:flex;align-items:center;gap:12px;padding:10px 0;border-bottom:1px solid var(--border2)">
+            <span style="font-size:1.6em">${extIcon}</span>
+            <div style="flex:1;min-width:0">
+              <div style="font-weight:600;font-size:.84em;color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${f.original}</div>
+              <div style="font-size:.7em;color:var(--text3)">${f.ext.toUpperCase()} · ${mb}</div>
+            </div>
+            ${dl}
+          </div>`;
+        });
+      } else {
+        html += '<div style="color:var(--text3);text-align:center;padding:20px">ไม่มีไฟล์แนบ</div>';
+      }
+      html += `<button onclick="document.getElementById('fileModal').remove()" class="btn btn-ghost btn-sm" style="width:100%;justify-content:center;margin-top:14px">ปิด</button>
+        </div></div>`;
+      const el = document.createElement('div');
+      el.innerHTML = html;
+      document.body.appendChild(el.firstChild);
+    })
+    .catch(e => toast('โหลดไฟล์ไม่ได้: ' + e.message, 'error'));
+}
 </script>
 {% endblock %}

@@ -1,0 +1,542 @@
+{% extends "base.html" %}
+{% block title %}สั่งงาน 3D Print{% endblock %}
+{% block topbar_title %}<span data-th="🖨️ สั่งงาน 3D Print" data-en="🖨️ 3D Print Order">🖨️ สั่งงาน 3D Print</span>{% endblock %}
+{% block extra_head %}
+<style>
+.of-wrap{max-width:720px;margin:0 auto}
+.field-row{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+.field-row3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px}
+
+/* Success card */
+.success-card{background:linear-gradient(135deg,rgba(16,185,129,.12),rgba(5,150,105,.08));border:1px solid rgba(16,185,129,.3);border-radius:var(--r);padding:26px;text-align:center;margin-bottom:20px;animation:fadeIn .5s ease}
+@keyframes fadeIn{from{opacity:0;transform:translateY(-10px)}to{opacity:1;transform:translateY(0)}}
+.ticket-code-box{background:var(--surface2);border:2px dashed rgba(108,99,255,.5);border-radius:var(--r-sm);padding:12px 22px;display:inline-block;font-family:var(--fm);font-size:1.5em;font-weight:700;color:#a78bfa;letter-spacing:4px;margin:8px 0}
+
+/* Section divider */
+.form-sec{font-size:.68em;font-weight:700;color:var(--accent);text-transform:uppercase;letter-spacing:1px;margin:18px 0 10px;display:flex;align-items:center;gap:8px}
+.form-sec::after{content:'';flex:1;height:1px;background:var(--border)}
+
+/* Priority buttons */
+.prio-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-top:4px}
+.pb{padding:9px 8px;border-radius:var(--r-sm);border:1.5px solid var(--border);background:var(--surface2);font-size:.78em;font-weight:600;cursor:pointer;transition:all .18s;text-align:center;color:var(--text2)}
+.pb.on-high{border-color:var(--red);background:var(--red-lt);color:var(--red)}
+.pb.on-med{border-color:var(--amber);background:var(--amber-lt);color:var(--amber)}
+.pb.on-low{border-color:var(--green);background:var(--green-lt);color:var(--green)}
+.pb:hover{border-color:var(--accent);color:var(--text)}
+
+/* Option cards (material, quality, etc.) */
+.opt-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(110px,1fr));gap:7px;margin-top:6px}
+.opt-card{padding:10px 8px;border-radius:var(--r-sm);border:1.5px solid var(--border);background:var(--surface2);cursor:pointer;transition:all .18s;text-align:center;position:relative}
+.opt-card:hover{border-color:var(--accent);background:var(--accent-lt)}
+.opt-card.on{border-color:var(--accent);background:var(--accent-lt)}
+.opt-card input[type="radio"]{position:absolute;opacity:0;width:0;height:0}
+.opt-card .oc-icon{font-size:1.4em;margin-bottom:3px}
+.opt-card .oc-name{font-size:.72em;font-weight:600;color:var(--text)}
+.opt-card .oc-sub{font-size:.62em;color:var(--text3);margin-top:1px}
+
+/* File upload zone */
+.file-zone{border:2px dashed var(--border);border-radius:var(--r);padding:24px;text-align:center;cursor:pointer;transition:all .22s;background:var(--surface2);position:relative}
+.file-zone:hover,.file-zone.dragover{border-color:var(--accent);background:var(--accent-lt)}
+.file-zone .fz-icon{font-size:2.2em;margin-bottom:8px;opacity:.5}
+.file-zone .fz-title{font-size:.86em;font-weight:600;color:var(--text2);margin-bottom:3px}
+.file-zone .fz-sub{font-size:.72em;color:var(--text3)}
+.file-zone.has-file{border-color:var(--green);background:var(--green-lt)}
+.file-zone.has-file .fz-icon{opacity:1}
+
+/* Infill slider */
+.infill-row{display:flex;align-items:center;gap:12px}
+.infill-row input[type=range]{flex:1;accent-color:var(--accent)}
+.infill-val{font-family:var(--fm);font-weight:700;font-size:.92em;color:var(--accent);min-width:44px;text-align:right}
+
+/* Size inputs */
+.size-row{display:flex;align-items:center;gap:6px}
+.size-row .input{text-align:center;font-family:var(--fm)}
+.size-sep{color:var(--text3);font-size:.8em;flex-shrink:0}
+
+/* Color picker row */
+.color-swatches{display:flex;gap:6px;flex-wrap:wrap;margin-top:6px}
+.color-sw{width:26px;height:26px;border-radius:50%;cursor:pointer;border:2px solid transparent;transition:all .18s;flex-shrink:0}
+.color-sw:hover,.color-sw.on{border-color:var(--text);transform:scale(1.15);box-shadow:0 0 0 2px var(--accent)}
+.color-custom{padding:5px 10px;border-radius:var(--r-pill);border:1.5px dashed var(--border);background:var(--surface2);font-size:.74em;color:var(--text2);cursor:pointer;transition:all .18s}
+.color-custom:hover{border-color:var(--accent);color:var(--accent)}
+.color-custom.on{border-color:var(--accent);color:var(--accent)}
+
+/* Deadline hint */
+.dl-hint{font-size:.72em;color:var(--text3);margin-top:4px;display:flex;align-items:center;gap:4px}
+
+/* Step indicator */
+.steps-bar{display:flex;gap:0;margin-bottom:20px;background:var(--surface);border:1px solid var(--border);border-radius:var(--r);overflow:hidden}
+.step-item{flex:1;padding:10px 8px;text-align:center;font-size:.72em;font-weight:600;color:var(--text3);border-right:1px solid var(--border);display:flex;flex-direction:column;align-items:center;gap:3px}
+.step-item:last-child{border-right:none}
+.step-item.active{color:var(--accent);background:var(--accent-lt)}
+.step-item .si-num{width:20px;height:20px;border-radius:50%;background:var(--border);color:var(--text3);display:flex;align-items:center;justify-content:center;font-size:.85em;font-weight:700}
+.step-item.active .si-num{background:var(--accent);color:#fff}
+
+@media(max-width:600px){.field-row{grid-template-columns:1fr}.field-row3{grid-template-columns:1fr 1fr}.opt-grid{grid-template-columns:repeat(auto-fill,minmax(90px,1fr))}}
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="of-wrap">
+
+  {# ── SUCCESS STATE ── #}
+  {% if success %}
+  <div class="success-card">
+    <div style="font-size:2.5em;margin-bottom:8px">🎉</div>
+    <div style="font-size:1.1em;font-weight:700;color:var(--green);margin-bottom:6px"
+         data-th="ส่งคำสั่งงาน 3D เรียบร้อย!" data-en="3D Order submitted!">ส่งคำสั่งงาน 3D เรียบร้อย!</div>
+    <div style="font-size:.84em;color:var(--text2);margin-bottom:12px">
+      <span data-th="ขอบคุณ" data-en="Thank you">ขอบคุณ</span>
+      <strong style="color:var(--text)"> {{ customer_name }}</strong>
+    </div>
+    {% if order_sn %}
+    <div style="font-size:.7em;color:var(--text3)" data-th="หมายเลขออเดอร์" data-en="Order No.">หมายเลขออเดอร์</div>
+    <div class="ticket-code-box" style="font-size:.9em;letter-spacing:2px">{{ order_sn }}</div>
+    {% endif %}
+    <div style="font-size:.7em;color:var(--text3);margin-top:8px" data-th="รหัส Ticket" data-en="Ticket Code">รหัส Ticket</div>
+    <div class="ticket-code-box">{{ ticket_code }}</div>
+
+    {% if saved_files %}
+    <div style="margin-top:12px;font-size:.76em;background:var(--surface2);border-radius:var(--r-sm);padding:10px 16px;text-align:left;display:inline-block">
+      <div style="font-weight:600;color:var(--text);margin-bottom:5px">📎 ไฟล์ที่ได้รับ</div>
+      {% for sf in saved_files %}
+      <div style="color:var(--green)">✅ {{ sf.original }}</div>
+      {% endfor %}
+    </div>
+    {% endif %}
+
+    <div style="display:flex;gap:10px;justify-content:center;margin-top:16px;flex-wrap:wrap">
+      <a href="/ticket/{{ ticket_code }}" class="btn btn-primary btn-sm"
+         data-th="🎟️ ดู Ticket" data-en="🎟️ View Ticket">🎟️ ดู Ticket</a>
+      <a href="/payment/{{ task_id }}" class="btn btn-success btn-sm"
+         data-th="💳 ชำระเงิน" data-en="💳 Pay Now">💳 ชำระเงิน</a>
+      <a href="/model" class="btn btn-ghost btn-sm"
+         data-th="📝 สั่งงานอีก" data-en="📝 New Order">📝 สั่งงานอีก</a>
+    </div>
+  </div>
+  {% endif %}
+
+  {# ── FORM ── #}
+  <div class="card card-p">
+    <!-- Header -->
+    <div style="display:flex;align-items:center;gap:12px;margin-bottom:18px">
+      <div style="width:44px;height:44px;border-radius:12px;background:linear-gradient(135deg,var(--brand-a),var(--brand-b));display:flex;align-items:center;justify-content:center;font-size:1.4em;flex-shrink:0;box-shadow:0 4px 12px rgba(108,99,255,.3)">🖨️</div>
+      <div>
+        <div style="font-size:1em;font-weight:700;color:var(--text)"
+             data-th="สั่งพิมพ์ 3D Model" data-en="3D Model Print Order">สั่งพิมพ์ 3D Model</div>
+        <div style="font-size:.74em;color:var(--text3)"
+             data-th="รองรับ STL, OBJ, STEP, 3MF, IGES และอื่นๆ" data-en="Supports STL, OBJ, STEP, 3MF, IGES and more">รองรับ STL, OBJ, STEP, 3MF, IGES และอื่นๆ</div>
+      </div>
+    </div>
+
+    <form method="post" action="/model/submit" enctype="multipart/form-data" id="modelForm">
+
+      {# ─ SECTION 1: CUSTOMER ─ #}
+      <div class="form-sec" data-th="👤 ข้อมูลผู้สั่ง" data-en="👤 CUSTOMER INFO">👤 ข้อมูลผู้สั่ง</div>
+      <div class="field-row">
+        <div class="field">
+          <label data-th="ชื่อ-นามสกุล *" data-en="Full Name *">ชื่อ-นามสกุล *</label>
+          <input name="customer_name" required class="input" placeholder="สมชาย ใจดี"
+                 data-ph-th="สมชาย ใจดี" data-ph-en="John Doe">
+        </div>
+        <div class="field">
+          <label data-th="เบอร์โทร *" data-en="Phone *">เบอร์โทร *</label>
+          <input name="customer_phone" required class="input" placeholder="081-234-5678">
+        </div>
+      </div>
+      <div class="field">
+        <label data-th="อีเมล (รับแจ้งสถานะ)" data-en="Email (order updates)">อีเมล (รับแจ้งสถานะ)</label>
+        <input name="customer_email" type="email" class="input" placeholder="example@email.com">
+      </div>
+
+      {# ─ SECTION 2: 3D FILE UPLOAD ─ #}
+      <div class="form-sec" data-th="📁 ไฟล์ 3D Model" data-en="📁 3D Model File">📁 ไฟล์ 3D Model</div>
+
+      <!-- Main 3D file -->
+      <div class="field">
+        <label data-th="ไฟล์ 3D Model (จำเป็น)" data-en="3D Model File (required)">ไฟล์ 3D Model</label>
+        <div class="file-zone" id="dropZone3D" onclick="document.getElementById('model_file_input').click()">
+          <div class="fz-icon" id="fzIcon3D">📦</div>
+          <div class="fz-title" id="fzTitle3D" data-th="คลิกหรือลากไฟล์มาวาง" data-en="Click or drag file here">คลิกหรือลากไฟล์มาวาง</div>
+          <div class="fz-sub" id="fzSub3D">STL · OBJ · STEP · 3MF · IGES · F3D · BLEND (ขนาดสูงสุด 200MB)</div>
+        </div>
+        <input type="file" id="model_file_input" name="model_file"
+               accept=".stl,.obj,.step,.stp,.3mf,.iges,.igs,.f3d,.blend,.fbx,.zip"
+               style="display:none" onchange="handleFile3D(this)">
+        <div style="font-size:.72em;color:var(--text3);margin-top:5px">
+          💡 <span data-th="ถ้ายังไม่มีไฟล์ อธิบายงานในช่อง 'รายละเอียด' แล้ว Admin จะติดต่อกลับ" data-en="If no file yet, describe in 'Details' and we'll contact you">ถ้ายังไม่มีไฟล์ อธิบายงานในช่อง 'รายละเอียด' แล้วเราจะติดต่อกลับ</span>
+        </div>
+      </div>
+
+      <!-- Reference image -->
+      <div class="field">
+        <label data-th="รูปอ้างอิง / Drawing (ไม่บังคับ)" data-en="Reference Image (optional)">รูปอ้างอิง / Drawing</label>
+        <div class="file-zone" style="padding:16px" id="dropZoneRef" onclick="document.getElementById('ref_image_input').click()">
+          <div style="display:flex;align-items:center;gap:10px;justify-content:center">
+            <span style="font-size:1.4em;opacity:.5" id="refIcon">🖼️</span>
+            <div>
+              <div style="font-size:.82em;font-weight:600;color:var(--text2)" id="refTitle"
+                   data-th="อัปโหลดรูปอ้างอิง, Drawing, หรือ Sketch" data-en="Upload reference image, drawing or sketch">อัปโหลดรูปอ้างอิง, Drawing, หรือ Sketch</div>
+              <div style="font-size:.68em;color:var(--text3)">JPG · PNG · PDF (ไม่บังคับ)</div>
+            </div>
+          </div>
+        </div>
+        <input type="file" id="ref_image_input" name="ref_image"
+               accept="image/*,.pdf" style="display:none" onchange="handleFileRef(this)">
+      </div>
+
+      {# ─ SECTION 3: JOB NAME ─ #}
+      <div class="form-sec" data-th="📋 รายละเอียดงาน" data-en="📋 JOB DETAILS">📋 รายละเอียดงาน</div>
+      <div class="field">
+        <label data-th="ชื่อชิ้นงาน *" data-en="Part Name *">ชื่อชิ้นงาน *</label>
+        <input name="task_title" required class="input"
+               placeholder="เช่น ฝาครอบ Case, โมเดลตัวละคร, Bracket ยึด..."
+               data-ph-th="เช่น ฝาครอบ Case, โมเดลตัวละคร..."
+               data-ph-en="e.g. Case cover, character model, bracket...">
+      </div>
+
+      {# ─ SECTION 4: MATERIAL ─ #}
+      <div class="form-sec" data-th="🧪 วัสดุ" data-en="🧪 MATERIAL">🧪 วัสดุ</div>
+      <input type="hidden" name="material" id="materialVal" value="PLA">
+      <div class="opt-grid" id="materialGrid">
+        {% set materials = [
+          ('PLA','🟢','PLA','ทั่วไป, ราคาถูก'),
+          ('ABS','🔵','ABS','ทนความร้อน'),
+          ('PETG','🟡','PETG','ทนน้ำ, ยืดหยุ่น'),
+          ('TPU','🟠','TPU','ยาง, ยืดได้'),
+          ('Resin','🔴','Resin','ละเอียดสูง'),
+          ('Nylon','⚪','Nylon','แข็งแรง'),
+          ('ASA','🟤','ASA','กันแดด UV'),
+          ('CF-PLA','⚫','CF PLA','เสริมคาร์บอน'),
+        ] %}
+        {% for val, icon, name, sub in materials %}
+        <div class="opt-card {% if loop.first %}on{% endif %}" onclick="selectOpt(this,'materialVal','{{ val }}')">
+          <input type="radio" name="_mat" value="{{ val }}" {% if loop.first %}checked{% endif %}>
+          <div class="oc-icon">{{ icon }}</div>
+          <div class="oc-name">{{ name }}</div>
+          <div class="oc-sub">{{ sub }}</div>
+        </div>
+        {% endfor %}
+      </div>
+
+      {# ─ SECTION 5: COLOR ─ #}
+      <div class="form-sec" data-th="🎨 สี" data-en="🎨 COLOR">🎨 สี</div>
+      <div class="color-swatches" id="colorSwatches">
+        {% set colors = [
+          ('#ffffff','ขาว'),('#000000','ดำ'),('#ef4444','แดง'),('#f97316','ส้ม'),
+          ('#eab308','เหลือง'),('#22c55e','เขียว'),('#3b82f6','น้ำเงิน'),
+          ('#8b5cf6','ม่วง'),('#ec4899','ชมพู'),('#6b7280','เทา'),
+          ('#78350f','น้ำตาล'),('#14b8a6','ฟ้าคราม'),
+        ] %}
+        {% for hex, name in colors %}
+        <div class="color-sw {% if hex=='#000000' %}on{% endif %}"
+             style="background:{{ hex }};{% if hex=='#ffffff' %}border:2px solid #ccc{% endif %}"
+             title="{{ name }}"
+             onclick="selectColor(this,'{{ name }}')"></div>
+        {% endfor %}
+        <div class="color-custom {% if true %}{% endif %}" id="colorCustomBtn"
+             onclick="toggleCustomColor()">+ ระบุเอง</div>
+      </div>
+      <input type="hidden" name="color" id="colorVal" value="ดำ">
+      <div id="customColorRow" style="display:none;margin-top:8px">
+        <input type="text" id="customColorInput" class="input" style="max-width:240px;font-size:.82em"
+               placeholder="เช่น แดงเข้ม, RAL 3020, #FF0000..."
+               data-ph-th="เช่น แดงเข้ม, RAL 3020..." data-ph-en="e.g. Dark red, RAL 3020..."
+               oninput="document.getElementById('colorVal').value=this.value">
+      </div>
+
+      {# ─ SECTION 6: SIZE & QUANTITY ─ #}
+      <div class="form-sec" data-th="📐 ขนาด & จำนวน" data-en="📐 SIZE & QTY">📐 ขนาด & จำนวน</div>
+      <div class="field-row">
+        <div class="field">
+          <label data-th="ขนาดชิ้นงาน (mm)" data-en="Dimensions (mm)">ขนาดชิ้นงาน (mm)</label>
+          <div class="size-row">
+            <input name="size_x" type="number" min="0" step="0.1" class="input" style="max-width:72px" placeholder="X">
+            <span class="size-sep">×</span>
+            <input name="size_y" type="number" min="0" step="0.1" class="input" style="max-width:72px" placeholder="Y">
+            <span class="size-sep">×</span>
+            <input name="size_z" type="number" min="0" step="0.1" class="input" style="max-width:72px" placeholder="Z">
+          </div>
+          <div style="font-size:.7em;color:var(--text3);margin-top:4px">ถ้าไม่ระบุ จะใช้ขนาดจากไฟล์</div>
+        </div>
+        <div class="field">
+          <label data-th="Scale (%)" data-en="Scale (%)">Scale (%)</label>
+          <input name="scale" type="number" min="1" max="1000" value="100" class="input" placeholder="100">
+          <div style="font-size:.7em;color:var(--text3);margin-top:4px">100% = ขนาดจริงตามไฟล์</div>
+        </div>
+      </div>
+      <div class="field" style="max-width:160px">
+        <label data-th="จำนวนชิ้น *" data-en="Quantity *">จำนวนชิ้น *</label>
+        <div style="display:flex;align-items:center;gap:6px">
+          <button type="button" class="pb" style="width:32px;height:32px;padding:0;font-size:1.1em" onclick="changeQty(-1)">−</button>
+          <input name="quantity" id="qtyInput" type="number" min="1" value="1" class="input" style="text-align:center;font-family:var(--fm);font-weight:700;width:60px">
+          <button type="button" class="pb" style="width:32px;height:32px;padding:0;font-size:1.1em" onclick="changeQty(1)">+</button>
+        </div>
+      </div>
+
+      {# ─ SECTION 7: PRINT QUALITY ─ #}
+      <div class="form-sec" data-th="⚙️ คุณภาพการพิมพ์" data-en="⚙️ PRINT QUALITY">⚙️ คุณภาพการพิมพ์</div>
+      <input type="hidden" name="quality" id="qualityVal" value="standard">
+      <div class="opt-grid">
+        {% set qualities = [
+          ('draft','⚡','Draft','0.3mm, เร็ว'),
+          ('standard','⭐','Standard','0.2mm, ทั่วไป'),
+          ('fine','✨','Fine','0.1mm, ละเอียด'),
+          ('ultra','💎','Ultra','0.05mm, สูงสุด'),
+        ] %}
+        {% for val, icon, name, sub in qualities %}
+        <div class="opt-card {% if val=='standard' %}on{% endif %}" onclick="selectOpt(this,'qualityVal','{{ val }}')">
+          <input type="radio" name="_q" value="{{ val }}" {% if val=='standard' %}checked{% endif %}>
+          <div class="oc-icon">{{ icon }}</div>
+          <div class="oc-name" data-th="{{ name }}" data-en="{{ name }}">{{ name }}</div>
+          <div class="oc-sub">{{ sub }}</div>
+        </div>
+        {% endfor %}
+      </div>
+
+      {# ─ SECTION 8: INFILL ─ #}
+      <div class="form-sec" data-th="🔲 Infill (ความหนาแน่นภายใน)" data-en="🔲 INFILL DENSITY">🔲 Infill (ความหนาแน่นภายใน)</div>
+      <div class="infill-row">
+        <input type="range" name="infill" id="infillSlider" min="5" max="100" step="5" value="20"
+               oninput="document.getElementById('infillDisplay').textContent=this.value+'%'">
+        <span class="infill-val" id="infillDisplay">20%</span>
+      </div>
+      <div style="display:flex;justify-content:space-between;font-size:.68em;color:var(--text3);margin-top:3px;padding:0 2px">
+        <span data-th="5% (เปลือก, เบา)" data-en="5% (shell, light)">5% เปลือก/เบา</span>
+        <span data-th="20% ทั่วไป" data-en="20% general">20% ทั่วไป</span>
+        <span data-th="50% แข็งแรง" data-en="50% strong">50% แข็งแรง</span>
+        <span data-th="100% ตัน" data-en="100% solid">100% ตัน</span>
+      </div>
+
+      {# ─ SECTION 9: SURFACE & SUPPORT ─ #}
+      <div class="form-sec" data-th="🪄 ผิวและ Support" data-en="🪄 SURFACE & SUPPORT">🪄 ผิวและ Support</div>
+      <div class="field-row">
+        <div class="field">
+          <label data-th="ผิวสำเร็จ" data-en="Surface Finish">ผิวสำเร็จ</label>
+          <input type="hidden" name="finish" id="finishVal" value="as_printed">
+          <div class="opt-grid" style="grid-template-columns:1fr 1fr">
+            {% set finishes = [
+              ('as_printed','🖨️','As Printed','ตามเครื่อง'),
+              ('sanded','🫧','Sanded','ขัดเรียบ'),
+              ('polished','💅','Polished','ขัดมัน'),
+              ('painted','🎨','Painted','ทำสีเพิ่ม'),
+            ] %}
+            {% for val, icon, name, sub in finishes %}
+            <div class="opt-card {% if val=='as_printed' %}on{% endif %}" onclick="selectOpt(this,'finishVal','{{ val }}')">
+              <input type="radio" name="_f" value="{{ val }}" {% if val=='as_printed' %}checked{% endif %}>
+              <div class="oc-icon">{{ icon }}</div>
+              <div class="oc-name" data-th="{{ name }}" data-en="{{ name }}">{{ name }}</div>
+              <div class="oc-sub">{{ sub }}</div>
+            </div>
+            {% endfor %}
+          </div>
+        </div>
+        <div class="field">
+          <label data-th="Support Structure" data-en="Support Structure">Support Structure</label>
+          <input type="hidden" name="support" id="supportVal" value="auto">
+          <div class="opt-grid" style="grid-template-columns:1fr">
+            {% set supports = [
+              ('auto','🤖','Auto','ระบบกำหนดให้'),
+              ('none','🚫','ไม่ใช้ Support','ออกแบบมาแล้ว'),
+              ('minimal','🔹','Minimal','น้อยที่สุด'),
+              ('full','🔶','Full Support','ทุกที่ที่จำเป็น'),
+            ] %}
+            {% for val, icon, name, sub in supports %}
+            <div class="opt-card {% if val=='auto' %}on{% endif %}" style="text-align:left;display:flex;align-items:center;gap:8px;padding:7px 10px" onclick="selectOpt(this,'supportVal','{{ val }}')">
+              <input type="radio" name="_s" value="{{ val }}" {% if val=='auto' %}checked{% endif %}>
+              <span style="font-size:1em">{{ icon }}</span>
+              <div><div class="oc-name" style="text-align:left" data-th="{{ name }}" data-en="{{ name }}">{{ name }}</div><div class="oc-sub" style="text-align:left">{{ sub }}</div></div>
+            </div>
+            {% endfor %}
+          </div>
+        </div>
+      </div>
+
+      {# ─ SECTION 10: USE CASE & BUDGET ─ #}
+      <div class="form-sec" data-th="🎯 วัตถุประสงค์ & งบประมาณ" data-en="🎯 PURPOSE & BUDGET">🎯 วัตถุประสงค์ & งบประมาณ</div>
+      <div class="field-row">
+        <div class="field">
+          <label data-th="วัตถุประสงค์การใช้งาน" data-en="Intended Use">วัตถุประสงค์การใช้งาน</label>
+          <select name="use_case" class="input">
+            <option value="" data-th="-- เลือก --" data-en="-- Select --">-- เลือก --</option>
+            <option value="decoration" data-th="🎨 ตกแต่ง / Display" data-en="🎨 Decoration / Display">🎨 ตกแต่ง / Display</option>
+            <option value="prototype" data-th="🔬 Prototype / ทดสอบ" data-en="🔬 Prototype / Testing">🔬 Prototype / ทดสอบ</option>
+            <option value="functional" data-th="⚙️ ชิ้นส่วนใช้งานจริง" data-en="⚙️ Functional Part">⚙️ ชิ้นส่วนใช้งานจริง</option>
+            <option value="cosplay" data-th="🦸 Cosplay / Prop" data-en="🦸 Cosplay / Prop">🦸 Cosplay / Prop</option>
+            <option value="jewelry" data-th="💍 เครื่องประดับ" data-en="💍 Jewelry">💍 เครื่องประดับ</option>
+            <option value="education" data-th="📚 การศึกษา / โมเดล" data-en="📚 Education / Model">📚 การศึกษา / โมเดล</option>
+            <option value="other" data-th="📌 อื่นๆ" data-en="📌 Other">📌 อื่นๆ</option>
+          </select>
+        </div>
+        <div class="field">
+          <label data-th="งบประมาณโดยประมาณ" data-en="Estimated Budget">งบประมาณโดยประมาณ</label>
+          <select name="budget" class="input">
+            <option value="" data-th="-- ไม่ระบุ --" data-en="-- Not specified --">-- ไม่ระบุ --</option>
+            <option value="under_500" data-th="ต่ำกว่า ฿500" data-en="Under ฿500">ต่ำกว่า ฿500</option>
+            <option value="500_1000" data-th="฿500 – ฿1,000" data-en="฿500 – ฿1,000">฿500 – ฿1,000</option>
+            <option value="1000_3000" data-th="฿1,000 – ฿3,000" data-en="฿1,000 – ฿3,000">฿1,000 – ฿3,000</option>
+            <option value="3000_plus" data-th="฿3,000 ขึ้นไป" data-en="฿3,000+">฿3,000 ขึ้นไป</option>
+            <option value="quote" data-th="ขอใบเสนอราคา" data-en="Request quote">ขอใบเสนอราคา</option>
+          </select>
+        </div>
+      </div>
+
+      {# ─ SECTION 11: ADDITIONAL NOTES ─ #}
+      <div class="form-sec" data-th="📝 รายละเอียดเพิ่มเติม" data-en="📝 ADDITIONAL NOTES">📝 รายละเอียดเพิ่มเติม</div>
+      <div class="field">
+        <textarea name="task_description" class="input" style="min-height:90px"
+                  placeholder="เช่น ต้องการรูบทะลุด้านใน, ความหนาผนัง 2mm, ข้อกำหนดพิเศษ, หรือรายละเอียดที่ต้องการแจ้งเพิ่มเติม..."
+                  data-ph-th="ข้อกำหนดพิเศษ, ความหนาผนัง, รูบทะลุ..."
+                  data-ph-en="Special requirements, wall thickness, holes..."></textarea>
+      </div>
+
+      {# ─ SECTION 12: DEADLINE & PRIORITY ─ #}
+      <div class="form-sec" data-th="📅 กำหนดเวลา" data-en="📅 TIMELINE">📅 กำหนดเวลา</div>
+      <div class="field-row">
+        <div class="field">
+          <label data-th="วันที่ต้องการรับงาน" data-en="Required Date">วันที่ต้องการรับงาน</label>
+          <input name="deadline" id="ddl" type="date" class="input">
+          <div class="dl-hint">⏰ <span data-th="เร็วสุด +9 วันจากวันนี้" data-en="Min +9 days from today">เร็วสุด +9 วันจากวันนี้</span></div>
+        </div>
+        <div class="field">
+          <label data-th="ความเร่งด่วน" data-en="Priority">ความเร่งด่วน</label>
+          <input type="hidden" name="priority" id="prioVal" value="medium">
+          <div class="prio-grid">
+            <div class="pb" id="pb-high" onclick="setPrio('high')" data-th="🔴 เร่งด่วน" data-en="🔴 Urgent">🔴 เร่งด่วน</div>
+            <div class="pb on-med" id="pb-med" onclick="setPrio('medium')" data-th="🟡 ปกติ" data-en="🟡 Normal">🟡 ปกติ</div>
+            <div class="pb" id="pb-low" onclick="setPrio('low')" data-th="🟢 ไม่เร่ง" data-en="🟢 Flexible">🟢 ไม่เร่ง</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Submit -->
+      <button type="submit" class="btn btn-primary" id="submitBtn"
+              style="width:100%;justify-content:center;padding:12px;margin-top:8px;font-size:.9em">
+        <span data-th="🖨️ ส่งคำสั่ง 3D Print" data-en="🖨️ Submit 3D Print Order">🖨️ ส่งคำสั่ง 3D Print</span>
+      </button>
+
+      <div style="text-align:center;font-size:.72em;color:var(--text3);margin-top:8px;line-height:1.6">
+        หลังจากรับออเดอร์ ทีมงานจะตรวจสอบไฟล์และติดต่อยืนยันราคา+ระยะเวลาก่อนเริ่มพิมพ์
+      </div>
+    </form>
+  </div>
+</div>
+{% endblock %}
+
+{% block extra_scripts %}
+<script>
+/* ── Deadline min +9 days ── */
+(function(){
+  const d=new Date(); d.setDate(d.getDate()+9);
+  const iso=d.toISOString().split('T')[0];
+  const inp=document.getElementById('ddl');
+  inp.min=iso; inp.value=iso;
+  inp.addEventListener('change',function(){
+    if(this.value<iso){this.value=iso;toast('กำหนดส่งต้องเป็น +9 วันขึ้นไป','warning')}
+  });
+})();
+
+/* ── Priority ── */
+function setPrio(p){
+  document.querySelectorAll('.pb[id^="pb-"]').forEach(el=>el.className='pb');
+  const m={high:'on-high',medium:'on-med',low:'on-low'};
+  const id={high:'pb-high',medium:'pb-med',low:'pb-low'};
+  document.getElementById(id[p]).classList.add(m[p]);
+  document.getElementById('prioVal').value=p;
+}
+
+/* ── Option card selector ── */
+function selectOpt(card, hiddenId, val){
+  const grid=card.parentElement;
+  grid.querySelectorAll('.opt-card').forEach(c=>c.classList.remove('on'));
+  card.classList.add('on');
+  document.getElementById(hiddenId).value=val;
+}
+
+/* ── Qty buttons ── */
+function changeQty(d){
+  const inp=document.getElementById('qtyInput');
+  const v=Math.max(1,parseInt(inp.value||1)+d);
+  inp.value=v;
+}
+
+/* ── Color swatches ── */
+function selectColor(el, name){
+  document.querySelectorAll('.color-sw').forEach(s=>s.classList.remove('on'));
+  document.querySelectorAll('.color-custom').forEach(s=>s.classList.remove('on'));
+  el.classList.add('on');
+  document.getElementById('colorVal').value=name;
+  document.getElementById('customColorRow').style.display='none';
+}
+function toggleCustomColor(){
+  const row=document.getElementById('customColorRow');
+  const btn=document.getElementById('colorCustomBtn');
+  const isOpen=row.style.display!=='none';
+  if(isOpen){row.style.display='none';btn.classList.remove('on')}
+  else{
+    row.style.display='block'; btn.classList.add('on');
+    document.querySelectorAll('.color-sw').forEach(s=>s.classList.remove('on'));
+    document.getElementById('customColorInput').focus();
+  }
+}
+
+/* ── File upload: 3D model ── */
+function handleFile3D(input){
+  const file=input.files[0];
+  if(!file)return;
+  const zone=document.getElementById('dropZone3D');
+  const icon=document.getElementById('fzIcon3D');
+  const title=document.getElementById('fzTitle3D');
+  const sub=document.getElementById('fzSub3D');
+  const ext=file.name.split('.').pop().toLowerCase();
+  const extIcons={stl:'🔺',obj:'🟦',step:'⚙️',stp:'⚙️','3mf':'📦',iges:'📐',igs:'📐',f3d:'🔧',blend:'🌀',fbx:'🎭',zip:'🗜️'};
+  const mb=(file.size/1024/1024).toFixed(1);
+  zone.classList.add('has-file');
+  icon.textContent=extIcons[ext]||'📁';
+  title.textContent=`${file.name}`;
+  sub.textContent=`${ext.toUpperCase()} · ${mb} MB`;
+}
+/* Drag & drop for 3D file */
+const dz=document.getElementById('dropZone3D');
+dz.addEventListener('dragover',e=>{e.preventDefault();dz.classList.add('dragover')});
+dz.addEventListener('dragleave',()=>dz.classList.remove('dragover'));
+dz.addEventListener('drop',e=>{
+  e.preventDefault();dz.classList.remove('dragover');
+  const file=e.dataTransfer.files[0];
+  if(file){
+    const dt=new DataTransfer();dt.items.add(file);
+    document.getElementById('model_file_input').files=dt.files;
+    handleFile3D(document.getElementById('model_file_input'));
+  }
+});
+
+/* ── File upload: ref image ── */
+function handleFileRef(input){
+  const file=input.files[0];
+  if(!file)return;
+  const zone=document.getElementById('dropZoneRef');
+  const icon=document.getElementById('refIcon');
+  const title=document.getElementById('refTitle');
+  zone.classList.add('has-file');
+  icon.textContent='✅';
+  title.textContent=file.name;
+  if(file.type.startsWith('image/')){
+    const r=new FileReader();
+    r.onload=e=>{
+      zone.style.backgroundImage=`url(${e.target.result})`;
+      zone.style.backgroundSize='cover';
+      zone.style.backgroundPosition='center';
+      zone.style.opacity='.85';
+    };
+    r.readAsDataURL(file);
+  }
+}
+
+/* ── Submit loading ── */
+document.getElementById('modelForm').addEventListener('submit',function(){
+  const btn=document.getElementById('submitBtn');
+  btn.disabled=true;
+  btn.innerHTML='⟳ กำลังส่ง...';
+});
+</script>
+{% endblock %}

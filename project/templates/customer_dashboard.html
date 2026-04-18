@@ -1,0 +1,142 @@
+{% extends "base.html" %}
+{% block title %}My Orders{% endblock %}
+{% block topbar_title %}<span data-th="📦 ออเดอร์ของฉัน" data-en="📦 My Orders">📦 ออเดอร์ของฉัน</span>{% endblock %}
+{% block extra_head %}
+<style>
+.cust-header{background:linear-gradient(135deg,rgba(14,165,233,.15),rgba(6,182,212,.08));border:1px solid rgba(14,165,233,.25);border-radius:var(--r);padding:20px 24px;margin-bottom:20px;display:flex;align-items:center;gap:16px}
+.cust-avatar{width:52px;height:52px;border-radius:50%;background:linear-gradient(135deg,#0ea5e9,#06b6d4);display:flex;align-items:center;justify-content:center;font-size:1.4em;font-weight:700;color:#fff;flex-shrink:0;box-shadow:0 4px 12px rgba(14,165,233,.35)}
+.order-card{padding:16px 18px;border-bottom:1px solid var(--border2);transition:background .15s}
+.order-card:last-child{border-bottom:none}.order-card:hover{background:var(--surface2)}
+.order-sn{font-family:var(--fm);font-size:.65em;font-weight:600;color:#0ea5e9;background:rgba(14,165,233,.12);padding:2px 8px;border-radius:var(--r-pill);display:inline-block}
+.progress-bar{height:4px;border-radius:2px;background:var(--border);margin:8px 0 4px;overflow:hidden}
+.progress-fill{height:100%;border-radius:2px;transition:width .3s}
+.file-chip{display:inline-flex;align-items:center;gap:4px;background:var(--surface2);border:1px solid var(--border);border-radius:var(--r-pill);padding:3px 10px;font-size:.68em;font-weight:600;color:var(--text2);margin:2px}
+.file-chip a{color:var(--accent);text-decoration:none}
+.stat-row{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:18px}
+@media(max-width:640px){.stat-row{grid-template-columns:1fr 1fr}.cust-header{flex-direction:column;text-align:center}}
+</style>
+{% endblock %}
+{% block content %}
+
+<!-- Customer header -->
+<div class="cust-header">
+  <div class="cust-avatar">{{ customer.name[0]|upper if customer.name else '?' }}</div>
+  <div style="flex:1">
+    <div style="font-size:1em;font-weight:700;color:var(--text)">{{ customer.name }}</div>
+    <div style="font-size:.78em;color:var(--text3)">📞 {{ customer.phone }}{% if customer.email %} · ✉️ {{ customer.email }}{% endif %}</div>
+    <div style="font-size:.72em;color:var(--text3);margin-top:2px">สมาชิกตั้งแต่ {{ customer.created_at[:10] if customer.created_at else '—' }}</div>
+  </div>
+  <div style="display:flex;gap:8px;flex-wrap:wrap">
+    <a href="/customer/profile" class="btn btn-ghost btn-sm" data-th="✏️ แก้ไขโปรไฟล์" data-en="✏️ Edit Profile">✏️ แก้ไข</a>
+    <a href="/customer/logout" class="btn btn-ghost btn-sm" style="color:var(--red)" data-th="🚪 ออก" data-en="🚪 Logout">🚪 ออก</a>
+  </div>
+</div>
+
+<!-- Stats -->
+<div class="stat-row">
+  {% set total = tasks|length %}
+  {% set done  = tasks|selectattr('status','equalto','completed')|list|length %}
+  {% set inprog= tasks|selectattr('status','equalto','inprogress')|list|length %}
+  {% set pend  = tasks|selectattr('status','equalto','pending')|list|length %}
+  <div class="card stat-card"><div class="stat-label" data-th="ทั้งหมด" data-en="Total">ทั้งหมด</div><div class="stat-value">{{ total }}</div></div>
+  <div class="card stat-card"><div class="stat-label" data-th="รอดำเนินการ" data-en="Pending">รอดำเนินการ</div><div class="stat-value" style="color:var(--amber)">{{ pend }}</div></div>
+  <div class="card stat-card"><div class="stat-label" data-th="กำลังทำ" data-en="In Progress">กำลังทำ</div><div class="stat-value" style="color:var(--blue)">{{ inprog }}</div></div>
+  <div class="card stat-card"><div class="stat-label" data-th="เสร็จแล้ว" data-en="Done">เสร็จแล้ว</div><div class="stat-value" style="color:var(--green)">{{ done }}</div></div>
+</div>
+
+<!-- Quick actions -->
+<div style="display:flex;gap:8px;margin-bottom:18px;flex-wrap:wrap">
+  <a href="/" class="btn btn-primary btn-sm" data-th="📝 สั่งงานใหม่" data-en="📝 New Order">📝 สั่งงานใหม่</a>
+  <a href="/model" class="btn btn-secondary btn-sm" data-th="🖨️ สั่ง 3D Print" data-en="🖨️ 3D Print">🖨️ สั่ง 3D Print</a>
+  <a href="/catalog" class="btn btn-secondary btn-sm" data-th="🛍️ ดูสินค้า" data-en="🛍️ Products">🛍️ ดูสินค้า</a>
+</div>
+
+<!-- Orders list -->
+<div class="card" style="overflow:hidden">
+  <div style="padding:14px 18px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between">
+    <div class="sec-title" data-th="ประวัติออเดอร์" data-en="Order History">ประวัติออเดอร์</div>
+    <span style="font-size:.74em;color:var(--text3)">{{ tasks|length }} <span data-th="รายการ" data-en="orders">รายการ</span></span>
+  </div>
+
+  {% if tasks %}
+  {% for t in tasks %}
+  {% set status_pct = {'pending':15,'inprogress':55,'completed':100,'cancelled':0} %}
+  {% set status_clr = {'pending':'var(--amber)','inprogress':'var(--blue)','completed':'var(--green)','cancelled':'var(--red)'} %}
+  <div class="order-card">
+    <div style="display:flex;align-items:flex-start;gap:10px;flex-wrap:wrap">
+      <div style="flex:1;min-width:0">
+        <!-- Header row -->
+        <div style="display:flex;align-items:center;gap:7px;flex-wrap:wrap;margin-bottom:4px">
+          <span class="order-sn">{{ t.sn or t.id[:8] }}</span>
+          <span class="badge badge-{% if t.status=='pending'%}amber{%elif t.status=='inprogress'%}blue{%elif t.status=='completed'%}green{%else%}red{%endif%}">
+            {%if t.status=='pending'%}⏳ รอดำเนินการ{%elif t.status=='inprogress'%}⚙️ กำลังทำ{%elif t.status=='completed'%}✅ เสร็จสิ้น{%else%}❌ ยกเลิก{%endif%}
+          </span>
+          {% if t.priority=='high' %}<span class="badge badge-red">🔴 เร่งด่วน</span>{% endif %}
+        </div>
+
+        <div style="font-size:.9em;font-weight:700;color:var(--text);margin-bottom:3px">{{ t.title }}</div>
+
+        <!-- Progress bar -->
+        <div class="progress-bar">
+          <div class="progress-fill" style="width:{{ status_pct.get(t.status,0) }}%;background:{{ status_clr.get(t.status,'var(--border)') }}"></div>
+        </div>
+        <div style="font-size:.72em;color:var(--text3);margin-bottom:6px;display:flex;gap:12px;flex-wrap:wrap">
+          <span>📅 สั่งเมื่อ {{ t.createdAt[:10] }}</span>
+          {% if t.deadline %}<span>🚚 กำหนดส่ง {{ t.deadline }}</span>{% endif %}
+        </div>
+
+        <!-- 3D specs summary -->
+        {% if t.specs_3d %}
+        <div style="font-size:.74em;background:var(--surface2);border-radius:var(--r-sm);padding:6px 10px;margin-bottom:6px;color:var(--text2)">
+          🖨️ {{ t.specs_3d.material }} · {{ t.specs_3d.color or '—' }} · {{ t.specs_3d.quality }} · {{ t.specs_3d.quantity }} ชิ้น
+        </div>
+        {% endif %}
+
+        <!-- Uploaded files -->
+        {% if t.specs_3d and t.specs_3d.files %}
+        <div style="margin-bottom:6px">
+          {% for sf in t.specs_3d.files %}
+          <span class="file-chip">
+            {%if sf.ext in ['stl','obj','step','stp','3mf','iges','igs','f3d']%}🔺{%else%}📎{%endif%}
+            {{ sf.original }}
+          </span>
+          {% endfor %}
+        </div>
+        {% endif %}
+
+        <!-- Slip status -->
+        {% if t.slips %}
+        {% set latest_slip = t.slips[-1] %}
+        <div style="font-size:.73em;margin-bottom:6px">
+          💳 สลิป:
+          {% if latest_slip.status=='approved' %}<span style="color:var(--green)">✅ อนุมัติแล้ว</span>
+          {% elif latest_slip.status=='rejected' %}<span style="color:var(--red)">❌ ปฏิเสธ</span>
+          {% else %}<span style="color:var(--amber)">⏳ รอตรวจสอบ</span>{% endif %}
+        </div>
+        {% endif %}
+
+        <!-- Actions -->
+        <div style="display:flex;gap:6px;flex-wrap:wrap">
+          <a href="/payment/{{ t.id }}" class="btn btn-ghost btn-xs" style="color:var(--green)" data-th="💳 ชำระเงิน" data-en="💳 Pay">💳 ชำระเงิน</a>
+          <a href="/order_pdf/{{ t.id }}" class="btn btn-ghost btn-xs" data-th="📄 PDF" data-en="📄 PDF">📄 PDF</a>
+          {% if t.specs_3d %}
+          <a href="/admin/spec_sheet/{{ t.id }}" class="btn btn-ghost btn-xs" target="_blank" data-th="📋 Spec Sheet" data-en="📋 Spec Sheet">📋 Spec Sheet</a>
+          {% endif %}
+        </div>
+      </div>
+    </div>
+  </div>
+  {% endfor %}
+
+  {% else %}
+  <div style="text-align:center;padding:60px;color:var(--text3)">
+    <div style="font-size:3.5em;opacity:.2;margin-bottom:14px">📭</div>
+    <p style="font-weight:600;color:var(--text);margin-bottom:8px" data-th="ยังไม่มีออเดอร์" data-en="No orders yet">ยังไม่มีออเดอร์</p>
+    <div style="display:flex;gap:8px;justify-content:center;flex-wrap:wrap;margin-top:14px">
+      <a href="/" class="btn btn-primary btn-sm" data-th="📝 สั่งงานแรก" data-en="📝 First Order">📝 สั่งงานแรก</a>
+      <a href="/model" class="btn btn-secondary btn-sm" data-th="🖨️ 3D Print" data-en="🖨️ 3D Print">🖨️ 3D Print</a>
+    </div>
+  </div>
+  {% endif %}
+</div>
+{% endblock %}
