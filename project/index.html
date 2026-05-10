@@ -1,0 +1,1015 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>If Clause – English Learning</title>
+<link href="https://fonts.googleapis.com/css2?family=Nunito:wght@400;600;700;800;900&family=Poppins:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --green: #19c997;
+    --green-dark: #0fa87e;
+    --green-light: #e6faf5;
+    --orange: #ff7043;
+    --orange-light: #fff3ef;
+    --yellow: #ffc107;
+    --yellow-light: #fff8e1;
+    --blue: #3a86ff;
+    --blue-light: #eef4ff;
+    --pink: #f06292;
+    --pink-light: #fce4ec;
+    --purple: #9c6cf5;
+    --purple-light: #f3eeff;
+    --teal: #00bcd4;
+    --bg: #f7fbf9;
+    --card: #ffffff;
+    --text: #1a2e25;
+    --text-muted: #6b8a7e;
+    --border: #d9ede7;
+    --shadow: 0 4px 24px rgba(25,201,151,0.10);
+    --radius: 18px;
+    --radius-sm: 10px;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: 'Poppins', sans-serif; background: var(--bg); color: var(--text); font-size: 15px; }
+  
+  /* NAV */
+  nav {
+    background: #fff;
+    border-bottom: 2px solid var(--border);
+    position: sticky; top: 0; z-index: 100;
+    padding: 0 20px;
+    display: flex; align-items: center; justify-content: space-between;
+    height: 60px;
+    box-shadow: 0 2px 12px rgba(25,201,151,0.08);
+  }
+  .nav-logo { display:flex; align-items:center; gap:8px; text-decoration:none; }
+  .nav-logo-icon { width:34px; height:34px; background: var(--green); border-radius:10px; display:flex; align-items:center; justify-content:center; color:#fff; font-weight:900; font-family:'Nunito',sans-serif; font-size:16px; }
+  .nav-logo-text { font-family:'Nunito',sans-serif; font-weight:800; font-size:17px; color: var(--text); }
+  .nav-logo-text span { color: var(--green); }
+  .nav-links { display:flex; gap:6px; }
+  .nav-link { text-decoration:none; font-size:12px; font-weight:600; color: var(--text-muted); padding:6px 12px; border-radius:20px; transition:.2s; }
+  .nav-link:hover, .nav-link.active { background: var(--green-light); color: var(--green-dark); }
+
+  /* HERO */
+  .hero {
+    background: linear-gradient(135deg, #0d2b22 0%, #1a4d38 60%, #19c997 100%);
+    padding: 50px 20px 60px;
+    text-align: center;
+    position: relative; overflow: hidden;
+  }
+  .hero::before {
+    content:''; position:absolute; top:-60px; right:-60px;
+    width:200px; height:200px; border-radius:50%;
+    background: rgba(255,255,255,0.04);
+  }
+  .hero::after {
+    content:''; position:absolute; bottom:-40px; left:-40px;
+    width:150px; height:150px; border-radius:50%;
+    background: rgba(25,201,151,0.15);
+  }
+  .hero-badge { display:inline-block; background:rgba(25,201,151,0.25); color:var(--green); border:1px solid rgba(25,201,151,0.4); border-radius:20px; padding:4px 14px; font-size:11px; font-weight:700; letter-spacing:1px; text-transform:uppercase; margin-bottom:14px; }
+  .hero h1 { font-family:'Nunito',sans-serif; font-size:clamp(26px,6vw,42px); font-weight:900; color:#fff; line-height:1.2; margin-bottom:12px; }
+  .hero h1 em { color: var(--green); font-style:normal; }
+  .hero p { color:rgba(255,255,255,0.75); font-size:14px; max-width:480px; margin:0 auto 28px; line-height:1.7; }
+  .hero-btns { display:flex; gap:12px; justify-content:center; flex-wrap:wrap; }
+  .btn { display:inline-flex; align-items:center; gap:6px; padding:12px 24px; border-radius:30px; font-weight:700; font-size:14px; text-decoration:none; border:none; cursor:pointer; transition:.2s; font-family:'Poppins',sans-serif; }
+  .btn-primary { background: var(--green); color:#fff; box-shadow:0 4px 16px rgba(25,201,151,0.35); }
+  .btn-primary:hover { background: var(--green-dark); transform:translateY(-1px); }
+  .btn-outline { background:transparent; color:#fff; border:2px solid rgba(255,255,255,0.35); }
+  .btn-outline:hover { background:rgba(255,255,255,0.1); }
+  .hero-chips { display:flex; gap:10px; justify-content:center; flex-wrap:wrap; margin-top:24px; }
+  .chip { background:rgba(255,255,255,0.1); color:rgba(255,255,255,0.85); border-radius:20px; padding:5px 14px; font-size:11px; font-weight:600; border:1px solid rgba(255,255,255,0.15); }
+
+  /* SECTION */
+  section { padding: 48px 20px; max-width: 760px; margin: 0 auto; }
+  .section-label { display:inline-flex; align-items:center; gap:6px; font-size:11px; font-weight:700; letter-spacing:1.5px; text-transform:uppercase; color: var(--green-dark); margin-bottom:8px; }
+  .section-label::before { content:''; width:20px; height:3px; background:var(--green); border-radius:2px; }
+  h2.section-title { font-family:'Nunito',sans-serif; font-weight:900; font-size:clamp(20px,4vw,28px); color:var(--text); margin-bottom:6px; }
+  h2.section-title em { color:var(--green); font-style:normal; }
+  .section-desc { color: var(--text-muted); font-size:14px; line-height:1.7; margin-bottom:28px; }
+
+  /* DIVIDER */
+  .divider { height:2px; background: linear-gradient(to right, var(--green-light), var(--border), transparent); margin: 0 20px; }
+
+  /* MIND MAP */
+  .mindmap-wrap { width:100%; overflow-x:auto; padding:10px 0 20px; }
+  .mindmap-svg { width:100%; min-width:320px; max-width:700px; display:block; margin:0 auto; }
+
+  /* CONDITIONAL CARDS */
+  .cond-grid { display:grid; gap:16px; }
+  .cond-card {
+    background: var(--card);
+    border-radius: var(--radius);
+    padding: 20px;
+    border-left: 5px solid;
+    box-shadow: var(--shadow);
+    transition: transform .2s;
+  }
+  .cond-card:hover { transform:translateY(-2px); }
+  .cond-card.zero { border-color: var(--blue); }
+  .cond-card.first { border-color: var(--green); }
+  .cond-card.second { border-color: var(--orange); }
+  .cond-card.third { border-color: var(--purple); }
+  .cond-tag { display:inline-block; border-radius:8px; padding:3px 10px; font-size:11px; font-weight:700; margin-bottom:10px; }
+  .cond-card.zero .cond-tag { background:var(--blue-light); color:var(--blue); }
+  .cond-card.first .cond-tag { background:var(--green-light); color:var(--green-dark); }
+  .cond-card.second .cond-tag { background:var(--orange-light); color:var(--orange); }
+  .cond-card.third .cond-tag { background:var(--purple-light); color:var(--purple); }
+  .cond-card h3 { font-family:'Nunito',sans-serif; font-weight:800; font-size:16px; margin-bottom:6px; }
+  .cond-card p { font-size:13px; color:var(--text-muted); line-height:1.6; }
+  .formula-box {
+    margin-top:12px; padding:10px 14px;
+    background: #f8fafb; border-radius:10px;
+    font-family: monospace; font-size:12px;
+    border:1px dashed var(--border);
+    color: var(--text);
+  }
+  .formula-box strong { color: var(--green-dark); }
+
+  /* STRUCTURE TABLE */
+  .struct-table { width:100%; border-collapse:collapse; border-radius:14px; overflow:hidden; box-shadow:var(--shadow); }
+  .struct-table thead { background: var(--green); color:#fff; }
+  .struct-table th { padding:12px 14px; font-size:12px; font-weight:700; text-align:left; letter-spacing:.5px; }
+  .struct-table td { padding:11px 14px; font-size:12px; border-bottom:1px solid var(--border); }
+  .struct-table tr:last-child td { border-bottom:none; }
+  .struct-table tr:nth-child(even) td { background:#f4fbf8; }
+  .struct-table tr:hover td { background:var(--green-light); }
+  .code { font-family:monospace; background:var(--green-light); color:var(--green-dark); padding:2px 7px; border-radius:5px; font-size:11px; }
+
+  /* EXAMPLE TABS */
+  .tab-bar { display:flex; gap:8px; margin-bottom:20px; flex-wrap:wrap; }
+  .tab-btn { padding:8px 18px; border-radius:20px; border:2px solid var(--border); background:#fff; font-weight:600; font-size:13px; cursor:pointer; transition:.2s; color:var(--text-muted); font-family:'Poppins',sans-serif; }
+  .tab-btn.active { background:var(--green); border-color:var(--green); color:#fff; }
+  .tab-content { display:none; }
+  .tab-content.active { display:block; }
+
+  /* EXAMPLE CARDS */
+  .ex-block { margin-bottom:18px; }
+  .ex-type-label { font-size:11px; font-weight:700; text-transform:uppercase; letter-spacing:1px; color:var(--text-muted); margin-bottom:10px; display:flex; align-items:center; gap:8px; }
+  .ex-type-label::after { content:''; flex:1; height:1px; background:var(--border); }
+  .ex-card {
+    background: var(--card);
+    border-radius: var(--radius-sm);
+    padding:14px 16px;
+    margin-bottom:10px;
+    box-shadow: 0 2px 10px rgba(0,0,0,0.05);
+    border:1px solid var(--border);
+  }
+  .ex-card .en { font-weight:600; color:var(--text); font-size:14px; margin-bottom:4px; }
+  .ex-card .en mark { background:var(--green-light); color:var(--green-dark); padding:1px 4px; border-radius:4px; font-style:normal; }
+  .ex-card .th { font-size:12px; color:var(--text-muted); }
+  .ex-card .type-dot { display:inline-block; width:8px; height:8px; border-radius:50%; margin-right:6px; }
+  .dot-zero { background:var(--blue); }
+  .dot-first { background:var(--green); }
+  .dot-second { background:var(--orange); }
+  .dot-third { background:var(--purple); }
+
+  /* HOW TO USE */
+  .how-grid { display:grid; gap:14px; }
+  .how-card {
+    background:var(--card);
+    border-radius:var(--radius-sm);
+    padding:16px;
+    display:flex; gap:14px; align-items:flex-start;
+    box-shadow:var(--shadow);
+    border:1px solid var(--border);
+  }
+  .how-icon { width:44px; height:44px; border-radius:12px; display:flex; align-items:center; justify-content:center; font-size:20px; flex-shrink:0; }
+  .how-card:nth-child(1) .how-icon { background:var(--blue-light); }
+  .how-card:nth-child(2) .how-icon { background:var(--green-light); }
+  .how-card:nth-child(3) .how-icon { background:var(--orange-light); }
+  .how-card:nth-child(4) .how-icon { background:var(--purple-light); }
+  .how-card h4 { font-weight:700; font-size:14px; margin-bottom:4px; }
+  .how-card p { font-size:12.5px; color:var(--text-muted); line-height:1.6; }
+
+  /* TEST */
+  .test-wrap { background:var(--card); border-radius:var(--radius); padding:24px 20px; box-shadow:var(--shadow); }
+  .q-card { margin-bottom:24px; }
+  .q-num { font-size:11px; font-weight:700; color:var(--green-dark); text-transform:uppercase; letter-spacing:1px; margin-bottom:8px; }
+  .q-text { font-weight:600; font-size:14px; color:var(--text); margin-bottom:4px; line-height:1.6; }
+  .q-blank { display:inline-block; border-bottom:2px solid var(--green); min-width:80px; text-align:center; color:var(--green-dark); font-style:italic; padding:0 4px; }
+  .q-context { font-size:12px; color:var(--text-muted); margin-bottom:12px; font-style:italic; }
+  .choices { display:grid; gap:8px; }
+  .choice-btn {
+    width:100%; text-align:left; padding:11px 14px;
+    border:2px solid var(--border); border-radius:var(--radius-sm);
+    background:#fff; cursor:pointer; font-size:13px;
+    font-family:'Poppins',sans-serif; font-weight:500;
+    transition:.15s; color:var(--text); display:flex; align-items:center; gap:10px;
+  }
+  .choice-btn:hover:not(:disabled) { border-color:var(--green); background:var(--green-light); }
+  .choice-btn.correct { border-color:#19c997 !important; background:#e6faf5 !important; color:var(--green-dark) !important; }
+  .choice-btn.wrong { border-color:#ff5252 !important; background:#fff1f1 !important; color:#c62828 !important; }
+  .choice-btn:disabled { cursor:default; }
+  .choice-letter { width:24px; height:24px; border-radius:6px; background:var(--border); display:flex; align-items:center; justify-content:center; font-size:11px; font-weight:700; flex-shrink:0; }
+  .choice-btn.correct .choice-letter { background:var(--green); color:#fff; }
+  .choice-btn.wrong .choice-letter { background:#ff5252; color:#fff; }
+  .feedback { display:none; margin-top:10px; padding:12px 14px; border-radius:var(--radius-sm); font-size:13px; line-height:1.6; }
+  .feedback.correct { display:block; background:#e6faf5; border:1px solid #a7e9d4; color:var(--green-dark); }
+  .feedback.wrong { display:block; background:#fff1f1; border:1px solid #ffcdd2; color:#c62828; }
+  .feedback strong { font-weight:700; }
+  .test-actions { display:flex; gap:12px; flex-wrap:wrap; margin-top:10px; }
+  .score-box {
+    display:none; margin-top:24px; padding:20px;
+    background: linear-gradient(135deg, var(--green-light), #fff);
+    border-radius:var(--radius); border:2px solid var(--green);
+    text-align:center;
+  }
+  .score-box.show { display:block; }
+  .score-big { font-family:'Nunito',sans-serif; font-weight:900; font-size:48px; color:var(--green); }
+  .score-sub { font-size:14px; color:var(--text-muted); margin-top:4px; }
+  .score-msg { font-weight:600; font-size:16px; color:var(--text); margin-top:10px; }
+  .btn-green { background:var(--green); color:#fff; padding:12px 24px; border-radius:30px; border:none; font-weight:700; font-size:14px; cursor:pointer; font-family:'Poppins',sans-serif; transition:.2s; }
+  .btn-green:hover { background:var(--green-dark); }
+  .btn-grey { background:var(--border); color:var(--text-muted); padding:12px 24px; border-radius:30px; border:none; font-weight:700; font-size:14px; cursor:pointer; font-family:'Poppins',sans-serif; transition:.2s; }
+  .btn-grey:hover { background:#c5d9d2; }
+
+  /* PROGRESS BAR */
+  .progress-bar-wrap { background:var(--border); border-radius:10px; height:6px; margin-bottom:20px; overflow:hidden; }
+  .progress-bar-fill { height:100%; background:var(--green); border-radius:10px; transition:width .4s; }
+
+  /* TIPS BOX */
+  .tip-box { background:var(--yellow-light); border:1px solid #ffe082; border-radius:var(--radius-sm); padding:14px 16px; display:flex; gap:12px; align-items:flex-start; margin-bottom:20px; }
+  .tip-icon { font-size:20px; }
+  .tip-text { font-size:13px; color:#5d4037; line-height:1.6; }
+  .tip-text strong { color:#e65100; }
+
+  /* FOOTER */
+  footer { background:#0d2b22; color:rgba(255,255,255,0.5); text-align:center; padding:24px 20px; font-size:12px; margin-top:40px; }
+  footer strong { color:var(--green); }
+
+  /* ANIMATIONS */
+  @keyframes fadeUp { from { opacity:0; transform:translateY(16px); } to { opacity:1; transform:translateY(0); } }
+  .fade-up { animation: fadeUp .5s ease both; }
+  .delay-1 { animation-delay:.1s; }
+  .delay-2 { animation-delay:.2s; }
+  .delay-3 { animation-delay:.3s; }
+
+  @media(min-width:600px) {
+    .cond-grid { grid-template-columns: 1fr 1fr; }
+    .how-grid { grid-template-columns: 1fr 1fr; }
+  }
+</style>
+</head>
+<body>
+
+<!-- NAV -->
+<nav>
+  <a class="nav-logo" href="#">
+    <div class="nav-logo-icon">E</div>
+    <span class="nav-logo-text">Edu<span>Grammar</span></span>
+  </a>
+  <div class="nav-links">
+    <a class="nav-link active" href="#mindmap">Map</a>
+    <a class="nav-link" href="#structure">Structure</a>
+    <a class="nav-link" href="#examples">Examples</a>
+    <a class="nav-link" href="#test">Test</a>
+  </div>
+</nav>
+
+<!-- HERO -->
+<div class="hero fade-up">
+  <div class="hero-badge">📚 English Grammar</div>
+  <h1>Master <em>If Clauses</em><br>Conditional Sentences</h1>
+  <p>เรียนรู้ประโยคเงื่อนไขทั้ง 4 ประเภท พร้อม Mind Map, โครงสร้าง, ตัวอย่าง และแบบทดสอบ</p>
+  <div class="hero-btns">
+    <a href="#mindmap" class="btn btn-primary">🗺 เริ่มเรียน</a>
+    <a href="#test" class="btn btn-outline">✏️ ทำแบบทดสอบ</a>
+  </div>
+  <div class="hero-chips">
+    <span class="chip">0️⃣ Zero Conditional</span>
+    <span class="chip">1️⃣ First Conditional</span>
+    <span class="chip">2️⃣ Second Conditional</span>
+    <span class="chip">3️⃣ Third Conditional</span>
+  </div>
+</div>
+
+<!-- MIND MAP -->
+<section id="mindmap">
+  <div class="section-label">Mind Map</div>
+  <h2 class="section-title">ภาพรวม <em>If Clauses</em></h2>
+  <p class="section-desc">มองเห็นความสัมพันธ์ของประโยคเงื่อนไขทั้ง 4 ประเภทในภาพเดียว</p>
+
+  <div class="mindmap-wrap">
+    <svg class="mindmap-svg" viewBox="0 0 700 520" xmlns="http://www.w3.org/2000/svg">
+      <!-- Background -->
+      <rect width="700" height="520" fill="#f7fbf9" rx="20"/>
+      
+      <!-- Decorative dots -->
+      <circle cx="30" cy="30" r="4" fill="#19c997" opacity=".3"/>
+      <circle cx="670" cy="30" r="4" fill="#ff7043" opacity=".3"/>
+      <circle cx="30" cy="490" r="4" fill="#3a86ff" opacity=".3"/>
+      <circle cx="670" cy="490" r="4" fill="#9c6cf5" opacity=".3"/>
+      <circle cx="350" cy="15" r="3" fill="#ffc107" opacity=".4"/>
+
+      <!-- ===== LINES/ARROWS from center ===== -->
+      <!-- To Zero (top-left) -->
+      <path d="M 350 230 Q 200 200 130 155" stroke="#3a86ff" stroke-width="2.5" fill="none" stroke-dasharray="5,4" marker-end="url(#arrowBlue)"/>
+      <!-- To First (top-right) -->
+      <path d="M 350 230 Q 500 200 570 155" stroke="#19c997" stroke-width="2.5" fill="none" stroke-dasharray="5,4" marker-end="url(#arrowGreen)"/>
+      <!-- To Second (bottom-left) -->
+      <path d="M 350 290 Q 200 330 130 375" stroke="#ff7043" stroke-width="2.5" fill="none" stroke-dasharray="5,4" marker-end="url(#arrowOrange)"/>
+      <!-- To Third (bottom-right) -->
+      <path d="M 350 290 Q 500 330 570 375" stroke="#9c6cf5" stroke-width="2.5" fill="none" stroke-dasharray="5,4" marker-end="url(#arrowPurple)"/>
+
+      <!-- Arrow markers -->
+      <defs>
+        <marker id="arrowBlue" markerWidth="8" markerHeight="8" refX="6" refY="3" orient="auto">
+          <path d="M0,0 L0,6 L8,3 z" fill="#3a86ff"/>
+        </marker>
+        <marker id="arrowGreen" markerWidth="8" markerHeight="8" refX="6" refY="3" orient="auto">
+          <path d="M0,0 L0,6 L8,3 z" fill="#19c997"/>
+        </marker>
+        <marker id="arrowOrange" markerWidth="8" markerHeight="8" refX="6" refY="3" orient="auto">
+          <path d="M0,0 L0,6 L8,3 z" fill="#ff7043"/>
+        </marker>
+        <marker id="arrowPurple" markerWidth="8" markerHeight="8" refX="6" refY="3" orient="auto">
+          <path d="M0,0 L0,6 L8,3 z" fill="#9c6cf5"/>
+        </marker>
+      </defs>
+
+      <!-- ===== CENTER BUBBLE ===== -->
+      <ellipse cx="350" cy="260" rx="78" ry="50" fill="#1a4d38" filter="url(#shadow)"/>
+      <defs>
+        <filter id="shadow" x="-20%" y="-20%" width="140%" height="140%">
+          <feDropShadow dx="0" dy="4" stdDeviation="6" flood-color="#19c99730"/>
+        </filter>
+      </defs>
+      <text x="350" y="252" text-anchor="middle" font-family="Nunito,sans-serif" font-weight="900" font-size="16" fill="#19c997">IF</text>
+      <text x="350" y="270" text-anchor="middle" font-family="Nunito,sans-serif" font-weight="900" font-size="16" fill="white">CLAUSES</text>
+      <text x="350" y="286" text-anchor="middle" font-family="Poppins,sans-serif" font-size="10" fill="rgba(255,255,255,0.55)">4 Types</text>
+
+      <!-- ===== ZERO CONDITIONAL (top-left) ===== -->
+      <rect x="30" y="80" width="200" height="90" rx="16" fill="#3a86ff" filter="url(#shadow)"/>
+      <text x="130" y="108" text-anchor="middle" font-family="Nunito,sans-serif" font-weight="900" font-size="13" fill="white">0️⃣ Zero Conditional</text>
+      <text x="130" y="124" text-anchor="middle" font-family="Poppins,sans-serif" font-size="10" fill="rgba(255,255,255,0.85)">ความจริงสากล / เหตุ-ผล</text>
+      <!-- formula -->
+      <rect x="45" y="132" width="170" height="26" rx="8" fill="rgba(255,255,255,0.15)"/>
+      <text x="130" y="149" text-anchor="middle" font-family="monospace" font-size="10" fill="white">If + V1, V1</text>
+      <!-- sub nodes -->
+      <rect x="5" y="48" width="90" height="24" rx="10" fill="white" stroke="#3a86ff" stroke-width="1.5"/>
+      <text x="50" y="64" text-anchor="middle" font-family="Poppins,sans-serif" font-size="10" fill="#3a86ff" font-weight="600">Scientific facts</text>
+      <line x1="50" y1="72" x2="70" y2="82" stroke="#3a86ff" stroke-width="1.5" stroke-dasharray="3,2"/>
+      <rect x="115" y="48" width="90" height="24" rx="10" fill="white" stroke="#3a86ff" stroke-width="1.5"/>
+      <text x="160" y="64" text-anchor="middle" font-family="Poppins,sans-serif" font-size="10" fill="#3a86ff" font-weight="600">General truths</text>
+      <line x1="160" y1="72" x2="170" y2="82" stroke="#3a86ff" stroke-width="1.5" stroke-dasharray="3,2"/>
+
+      <!-- ===== FIRST CONDITIONAL (top-right) ===== -->
+      <rect x="470" y="80" width="200" height="90" rx="16" fill="#19c997" filter="url(#shadow)"/>
+      <text x="570" y="108" text-anchor="middle" font-family="Nunito,sans-serif" font-weight="900" font-size="13" fill="white">1️⃣ First Conditional</text>
+      <text x="570" y="124" text-anchor="middle" font-family="Poppins,sans-serif" font-size="10" fill="rgba(255,255,255,0.85)">เป็นไปได้ในอนาคต</text>
+      <rect x="485" y="132" width="170" height="26" rx="8" fill="rgba(255,255,255,0.15)"/>
+      <text x="570" y="149" text-anchor="middle" font-family="monospace" font-size="10" fill="white">If + V1, will + V1</text>
+      <!-- sub nodes -->
+      <rect x="475" y="48" width="80" height="24" rx="10" fill="white" stroke="#19c997" stroke-width="1.5"/>
+      <text x="515" y="64" text-anchor="middle" font-family="Poppins,sans-serif" font-size="10" fill="#0fa87e" font-weight="600">Real future</text>
+      <line x1="515" y1="72" x2="530" y2="82" stroke="#19c997" stroke-width="1.5" stroke-dasharray="3,2"/>
+      <rect x="570" y="48" width="90" height="24" rx="10" fill="white" stroke="#19c997" stroke-width="1.5"/>
+      <text x="615" y="64" text-anchor="middle" font-family="Poppins,sans-serif" font-size="10" fill="#0fa87e" font-weight="600">Likely events</text>
+      <line x1="615" y1="72" x2="600" y2="82" stroke="#19c997" stroke-width="1.5" stroke-dasharray="3,2"/>
+
+      <!-- ===== SECOND CONDITIONAL (bottom-left) ===== -->
+      <rect x="30" y="340" width="200" height="90" rx="16" fill="#ff7043" filter="url(#shadow)"/>
+      <text x="130" y="368" text-anchor="middle" font-family="Nunito,sans-serif" font-weight="900" font-size="13" fill="white">2️⃣ Second Conditional</text>
+      <text x="130" y="384" text-anchor="middle" font-family="Poppins,sans-serif" font-size="10" fill="rgba(255,255,255,0.85)">สมมติปัจจุบัน/อนาคต</text>
+      <rect x="45" y="392" width="170" height="26" rx="8" fill="rgba(255,255,255,0.15)"/>
+      <text x="130" y="409" text-anchor="middle" font-family="monospace" font-size="10" fill="white">If + V2, would + V1</text>
+      <!-- sub nodes -->
+      <rect x="5" y="448" width="95" height="24" rx="10" fill="white" stroke="#ff7043" stroke-width="1.5"/>
+      <text x="52" y="464" text-anchor="middle" font-family="Poppins,sans-serif" font-size="10" fill="#e64a19" font-weight="600">Unreal/Unlikely</text>
+      <line x1="52" y1="448" x2="60" y2="432" stroke="#ff7043" stroke-width="1.5" stroke-dasharray="3,2"/>
+      <rect x="110" y="448" width="80" height="24" rx="10" fill="white" stroke="#ff7043" stroke-width="1.5"/>
+      <text x="150" y="464" text-anchor="middle" font-family="Poppins,sans-serif" font-size="10" fill="#e64a19" font-weight="600">Imaginary</text>
+      <line x1="150" y1="448" x2="150" y2="432" stroke="#ff7043" stroke-width="1.5" stroke-dasharray="3,2"/>
+
+      <!-- ===== THIRD CONDITIONAL (bottom-right) ===== -->
+      <rect x="470" y="340" width="200" height="90" rx="16" fill="#9c6cf5" filter="url(#shadow)"/>
+      <text x="570" y="368" text-anchor="middle" font-family="Nunito,sans-serif" font-weight="900" font-size="13" fill="white">3️⃣ Third Conditional</text>
+      <text x="570" y="384" text-anchor="middle" font-family="Poppins,sans-serif" font-size="10" fill="rgba(255,255,255,0.85)">สมมติอดีต (เปลี่ยนไม่ได้)</text>
+      <rect x="485" y="392" width="170" height="26" rx="8" fill="rgba(255,255,255,0.15)"/>
+      <text x="570" y="409" text-anchor="middle" font-family="monospace" font-size="9.5" fill="white">If + had+V3, would have+V3</text>
+      <!-- sub nodes -->
+      <rect x="475" y="448" width="80" height="24" rx="10" fill="white" stroke="#9c6cf5" stroke-width="1.5"/>
+      <text x="515" y="464" text-anchor="middle" font-family="Poppins,sans-serif" font-size="10" fill="#6d28d9" font-weight="600">Past regret</text>
+      <line x1="515" y1="448" x2="530" y2="432" stroke="#9c6cf5" stroke-width="1.5" stroke-dasharray="3,2"/>
+      <rect x="570" y="448" width="90" height="24" rx="10" fill="white" stroke="#9c6cf5" stroke-width="1.5"/>
+      <text x="615" y="464" text-anchor="middle" font-family="Poppins,sans-serif" font-size="10" fill="#6d28d9" font-weight="600">Hypothetical</text>
+      <line x1="615" y1="448" x2="600" y2="432" stroke="#9c6cf5" stroke-width="1.5" stroke-dasharray="3,2"/>
+
+      <!-- Pencil decoration -->
+      <g transform="translate(320,30) rotate(-20)">
+        <rect x="0" y="0" width="10" height="36" rx="2" fill="#ffc107"/>
+        <polygon points="0,36 10,36 5,46" fill="#ff8f00"/>
+        <rect x="0" y="0" width="10" height="6" rx="2" fill="#bdbdbd"/>
+      </g>
+      <!-- Lightbulb decoration -->
+      <g transform="translate(20,220)">
+        <circle cx="12" cy="12" r="11" fill="#fff9c4" stroke="#ffc107" stroke-width="2"/>
+        <text x="12" y="17" text-anchor="middle" font-size="13">💡</text>
+      </g>
+    </svg>
+  </div>
+</section>
+
+<div class="divider"></div>
+
+<!-- CONDITIONAL TYPES -->
+<section id="structure">
+  <div class="section-label">Structure</div>
+  <h2 class="section-title">โครงสร้าง <em>ทั้ง 4 ประเภท</em></h2>
+  <p class="section-desc">ทำความเข้าใจโครงสร้างและความหมายของแต่ละ conditional</p>
+
+  <div class="cond-grid">
+    <div class="cond-card zero">
+      <span class="cond-tag">Zero Conditional</span>
+      <h3>ความจริงทั่วไป / กฎธรรมชาติ</h3>
+      <p>ใช้พูดถึงสิ่งที่เป็นความจริงเสมอ ผลลัพธ์ที่เกิดขึ้นแน่นอนเมื่อมีเงื่อนไขนั้น</p>
+      <div class="formula-box">
+        <strong>If</strong> + Subject + <strong>V1</strong>, Subject + <strong>V1</strong><br>
+        <span style="color:#888;font-size:11px">ตัวอย่าง: If you heat ice, it melts.</span>
+      </div>
+    </div>
+    <div class="cond-card first">
+      <span class="cond-tag">First Conditional</span>
+      <h3>เป็นไปได้จริงในอนาคต</h3>
+      <p>ใช้พูดถึงสถานการณ์ที่อาจเกิดขึ้นได้จริงในอนาคต มีความเป็นไปได้สูง</p>
+      <div class="formula-box">
+        <strong>If</strong> + Subject + <strong>V1</strong>, Subject + <strong>will + V1</strong><br>
+        <span style="color:#888;font-size:11px">ตัวอย่าง: If it rains, I will stay home.</span>
+      </div>
+    </div>
+    <div class="cond-card second">
+      <span class="cond-tag">Second Conditional</span>
+      <h3>สมมติ / ไม่น่าเป็นไปได้ (ปัจจุบัน)</h3>
+      <p>สมมติสถานการณ์ที่ไม่เป็นจริง หรือแทบไม่มีทางเกิดขึ้นในปัจจุบัน</p>
+      <div class="formula-box">
+        <strong>If</strong> + Subject + <strong>V2</strong>, Subject + <strong>would + V1</strong><br>
+        <span style="color:#888;font-size:11px">ตัวอย่าง: If I were rich, I would travel the world.</span>
+      </div>
+    </div>
+    <div class="cond-card third">
+      <span class="cond-tag">Third Conditional</span>
+      <h3>สมมติอดีต / เสียดายที่ผ่านไปแล้ว</h3>
+      <p>สมมติว่าถ้าเหตุการณ์ในอดีตเกิดต่างออกไป ผลลัพธ์จะเป็นอย่างไร</p>
+      <div class="formula-box">
+        <strong>If</strong> + Subject + <strong>had + V3</strong>, Subject + <strong>would have + V3</strong><br>
+        <span style="color:#888;font-size:11px">ตัวอย่าง: If I had studied, I would have passed.</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- Table -->
+  <h3 style="margin:32px 0 14px;font-family:'Nunito',sans-serif;font-weight:800;font-size:17px;">📊 ตารางสรุปโครงสร้าง</h3>
+  <div style="overflow-x:auto;border-radius:14px;box-shadow:var(--shadow);">
+    <table class="struct-table">
+      <thead>
+        <tr>
+          <th>Type</th><th>If Clause</th><th>Main Clause</th><th>การใช้</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td><span class="code" style="background:#eef4ff;color:#3a86ff">Zero</span></td>
+          <td>If + <span class="code">V1</span></td>
+          <td><span class="code">V1</span></td>
+          <td>ความจริงสากล</td>
+        </tr>
+        <tr>
+          <td><span class="code" style="background:var(--green-light);color:var(--green-dark)">First</span></td>
+          <td>If + <span class="code">V1</span></td>
+          <td><span class="code">will + V1</span></td>
+          <td>อนาคตที่เป็นไปได้</td>
+        </tr>
+        <tr>
+          <td><span class="code" style="background:var(--orange-light);color:var(--orange)">Second</span></td>
+          <td>If + <span class="code">V2 / were</span></td>
+          <td><span class="code">would + V1</span></td>
+          <td>สมมติปัจจุบัน</td>
+        </tr>
+        <tr>
+          <td><span class="code" style="background:var(--purple-light);color:var(--purple)">Third</span></td>
+          <td>If + <span class="code">had + V3</span></td>
+          <td><span class="code">would have + V3</span></td>
+          <td>สมมติอดีต</td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+</section>
+
+<div class="divider"></div>
+
+<!-- HOW TO USE -->
+<section id="howtouse">
+  <div class="section-label">How to Use</div>
+  <h2 class="section-title">วิธีเลือกใช้ <em>อย่างถูกต้อง</em></h2>
+  <p class="section-desc">คำถาม 4 ข้อนี้จะช่วยให้คุณเลือก conditional ได้ถูกต้อง</p>
+
+  <div class="how-grid">
+    <div class="how-card">
+      <div class="how-icon">🌍</div>
+      <div>
+        <h4>ความจริงทั่วไปหรือไม่?</h4>
+        <p>ถ้าพูดถึงกฎธรรมชาติ หรือสิ่งที่เป็นจริงเสมอ → ใช้ <strong>Zero Conditional</strong><br>"If you drop a ball, it falls."</p>
+      </div>
+    </div>
+    <div class="how-card">
+      <div class="how-icon">🔮</div>
+      <div>
+        <h4>อนาคต เป็นไปได้จริงไหม?</h4>
+        <p>ถ้าสถานการณ์มีโอกาสเกิดขึ้นจริงในอนาคต → ใช้ <strong>First Conditional</strong><br>"If I have time, I will help you."</p>
+      </div>
+    </div>
+    <div class="how-card">
+      <div class="how-icon">💭</div>
+      <div>
+        <h4>สมมติ ไม่เป็นความจริงตอนนี้?</h4>
+        <p>ถ้าเป็นเรื่องสมมติที่ไม่น่าเกิดขึ้น → ใช้ <strong>Second Conditional</strong><br>"If I were a bird, I would fly."</p>
+      </div>
+    </div>
+    <div class="how-card">
+      <div class="how-icon">⏰</div>
+      <div>
+        <h4>สมมติอดีต ที่ผ่านไปแล้ว?</h4>
+        <p>ถ้าสมมติเหตุการณ์อดีตที่เปลี่ยนไม่ได้ → ใช้ <strong>Third Conditional</strong><br>"If I had known, I would have called."</p>
+      </div>
+    </div>
+  </div>
+
+  <div class="tip-box" style="margin-top:20px;">
+    <div class="tip-icon">💡</div>
+    <div class="tip-text">
+      <strong>Tips:</strong> ใน Second Conditional ใช้ <strong>"were"</strong> แทน "was" ทุก subject เช่น "If I were you…" แม้กับ I/He/She ก็ตาม เพราะเป็นรูป Subjunctive Mood
+    </div>
+  </div>
+</section>
+
+<div class="divider"></div>
+
+<!-- EXAMPLES -->
+<section id="examples">
+  <div class="section-label">Examples</div>
+  <h2 class="section-title">ตัวอย่าง <em>ประโยคทุกรูปแบบ</em></h2>
+  <p class="section-desc">ประโยคบอกเล่า ปฏิเสธ และคำถาม ของทั้ง 4 conditional</p>
+
+  <div class="tab-bar">
+    <button class="tab-btn active" onclick="switchTab('affirmative',this)">✅ บอกเล่า</button>
+    <button class="tab-btn" onclick="switchTab('negative',this)">❌ ปฏิเสธ</button>
+    <button class="tab-btn" onclick="switchTab('question',this)">❓ คำถาม</button>
+  </div>
+
+  <!-- Affirmative -->
+  <div class="tab-content active" id="tab-affirmative">
+    <div class="ex-block">
+      <div class="ex-type-label"><span class="type-dot dot-zero"></span>Zero Conditional</div>
+      <div class="ex-card">
+        <div class="en">If you <mark>heat</mark> water to 100°C, it <mark>boils</mark>.</div>
+        <div class="th">🇹🇭 ถ้าคุณให้ความร้อนน้ำถึง 100°C มันจะเดือด (ความจริงวิทยาศาสตร์)</div>
+      </div>
+      <div class="ex-card">
+        <div class="en">If dogs <mark>eat</mark> chocolate, they <mark>get</mark> sick.</div>
+        <div class="th">🇹🇭 ถ้าสุนัขกินช็อกโกแลต มันจะป่วย</div>
+      </div>
+    </div>
+    <div class="ex-block">
+      <div class="ex-type-label"><span class="type-dot dot-first"></span>First Conditional</div>
+      <div class="ex-card">
+        <div class="en">If it <mark>rains</mark> tomorrow, I <mark>will stay</mark> home.</div>
+        <div class="th">🇹🇭 ถ้าฝนตกพรุ่งนี้ ฉันจะอยู่บ้าน</div>
+      </div>
+      <div class="ex-card">
+        <div class="en">If she <mark>studies</mark> hard, she <mark>will pass</mark> the exam.</div>
+        <div class="th">🇹🇭 ถ้าเธอเรียนหนัก เธอจะสอบผ่าน</div>
+      </div>
+    </div>
+    <div class="ex-block">
+      <div class="ex-type-label"><span class="type-dot dot-second"></span>Second Conditional</div>
+      <div class="ex-card">
+        <div class="en">If I <mark>were</mark> rich, I <mark>would travel</mark> the world.</div>
+        <div class="th">🇹🇭 ถ้าฉันรวย ฉันคงจะท่องเที่ยวรอบโลก (แต่จริงๆ ฉันไม่รวย)</div>
+      </div>
+      <div class="ex-card">
+        <div class="en">If he <mark>had</mark> a car, he <mark>would drive</mark> to work.</div>
+        <div class="th">🇹🇭 ถ้าเขามีรถ เขาคงขับรถไปทำงาน</div>
+      </div>
+    </div>
+    <div class="ex-block">
+      <div class="ex-type-label"><span class="type-dot dot-third"></span>Third Conditional</div>
+      <div class="ex-card">
+        <div class="en">If I <mark>had studied</mark>, I <mark>would have passed</mark> the test.</div>
+        <div class="th">🇹🇭 ถ้าฉันได้ตั้งใจเรียน ฉันคงสอบผ่านไปแล้ว (แต่ไม่ได้ทำ)</div>
+      </div>
+      <div class="ex-card">
+        <div class="en">If she <mark>had left</mark> earlier, she <mark>would have caught</mark> the bus.</div>
+        <div class="th">🇹🇭 ถ้าเธอออกไปก่อนหน้านี้ เธอคงทันรถบัสแล้ว</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Negative -->
+  <div class="tab-content" id="tab-negative">
+    <div class="ex-block">
+      <div class="ex-type-label"><span class="type-dot dot-zero"></span>Zero Conditional</div>
+      <div class="ex-card">
+        <div class="en">If you <mark>don't water</mark> plants, they <mark>don't grow</mark>.</div>
+        <div class="th">🇹🇭 ถ้าคุณไม่รดน้ำต้นไม้ มันก็จะไม่เติบโต</div>
+      </div>
+    </div>
+    <div class="ex-block">
+      <div class="ex-type-label"><span class="type-dot dot-first"></span>First Conditional</div>
+      <div class="ex-card">
+        <div class="en">If you <mark>don't hurry</mark>, you <mark>will not catch</mark> the train.</div>
+        <div class="th">🇹🇭 ถ้าคุณไม่รีบ คุณจะไม่ทันรถไฟ</div>
+      </div>
+      <div class="ex-card">
+        <div class="en">If I <mark>don't sleep</mark> early, I <mark>won't wake</mark> up on time.</div>
+        <div class="th">🇹🇭 ถ้าฉันไม่นอนแต่เนิ่นๆ ฉันจะตื่นไม่ทันเวลา</div>
+      </div>
+    </div>
+    <div class="ex-block">
+      <div class="ex-type-label"><span class="type-dot dot-second"></span>Second Conditional</div>
+      <div class="ex-card">
+        <div class="en">If I <mark>didn't have</mark> a job, I <mark>wouldn't be able</mark> to pay rent.</div>
+        <div class="th">🇹🇭 ถ้าฉันไม่มีงาน ฉันคงไม่สามารถจ่ายค่าเช่าได้</div>
+      </div>
+    </div>
+    <div class="ex-block">
+      <div class="ex-type-label"><span class="type-dot dot-third"></span>Third Conditional</div>
+      <div class="ex-card">
+        <div class="en">If he <mark>hadn't been</mark> late, he <mark>wouldn't have missed</mark> the meeting.</div>
+        <div class="th">🇹🇭 ถ้าเขาไม่มาสาย เขาคงไม่พลาดการประชุม</div>
+      </div>
+      <div class="ex-card">
+        <div class="en">If we <mark>hadn't forgotten</mark> the map, we <mark>wouldn't have gotten</mark> lost.</div>
+        <div class="th">🇹🇭 ถ้าเราไม่ลืมแผนที่ เราคงไม่หลงทาง</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Question -->
+  <div class="tab-content" id="tab-question">
+    <div class="tip-box">
+      <div class="tip-icon">ℹ️</div>
+      <div class="tip-text"><strong>Note:</strong> ในประโยคคำถาม ส่วน If clause ไม่เปลี่ยน แต่ main clause เปลี่ยนเป็น question form</div>
+    </div>
+    <div class="ex-block">
+      <div class="ex-type-label"><span class="type-dot dot-zero"></span>Zero Conditional</div>
+      <div class="ex-card">
+        <div class="en"><mark>What happens</mark> if you mix red and blue?</div>
+        <div class="th">🇹🇭 จะเกิดอะไรขึ้นถ้าคุณผสมสีแดงกับสีน้ำเงิน?</div>
+      </div>
+    </div>
+    <div class="ex-block">
+      <div class="ex-type-label"><span class="type-dot dot-first"></span>First Conditional</div>
+      <div class="ex-card">
+        <div class="en"><mark>Will you come</mark> to the party if I invite you?</div>
+        <div class="th">🇹🇭 คุณจะมางานปาร์ตี้ไหมถ้าฉันเชิญ?</div>
+      </div>
+      <div class="ex-card">
+        <div class="en"><mark>What will you do</mark> if you lose your phone?</div>
+        <div class="th">🇹🇭 คุณจะทำอย่างไรถ้าคุณทำโทรศัพท์หาย?</div>
+      </div>
+    </div>
+    <div class="ex-block">
+      <div class="ex-type-label"><span class="type-dot dot-second"></span>Second Conditional</div>
+      <div class="ex-card">
+        <div class="en"><mark>What would you do</mark> if you won the lottery?</div>
+        <div class="th">🇹🇭 คุณจะทำอะไรถ้าคุณถูกหวย?</div>
+      </div>
+      <div class="ex-card">
+        <div class="en"><mark>Where would you go</mark> if you could travel anywhere?</div>
+        <div class="th">🇹🇭 คุณจะไปที่ไหนถ้าคุณสามารถเดินทางได้ทุกที่?</div>
+      </div>
+    </div>
+    <div class="ex-block">
+      <div class="ex-type-label"><span class="type-dot dot-third"></span>Third Conditional</div>
+      <div class="ex-card">
+        <div class="en"><mark>Would you have stayed</mark> if you had known about the problem?</div>
+        <div class="th">🇹🇭 คุณจะอยู่ต่อไหมถ้าคุณรู้เกี่ยวกับปัญหานั้น?</div>
+      </div>
+      <div class="ex-card">
+        <div class="en"><mark>What would have happened</mark> if they hadn't arrived in time?</div>
+        <div class="th">🇹🇭 จะเกิดอะไรขึ้นถ้าพวกเขาไม่มาทัน?</div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<div class="divider"></div>
+
+<!-- TEST -->
+<section id="test">
+  <div class="section-label">Quiz Time</div>
+  <h2 class="section-title">แบบทดสอบ <em>If Clauses</em></h2>
+  <p class="section-desc">10 ข้อ เลือกคำตอบที่ถูกต้อง มีคำอธิบายทุกข้อ</p>
+
+  <div class="test-wrap">
+    <div class="progress-bar-wrap">
+      <div class="progress-bar-fill" id="progressBar" style="width:0%"></div>
+    </div>
+
+    <!-- Q1 -->
+    <div class="q-card" id="q1">
+      <div class="q-num">ข้อที่ 1 / 10</div>
+      <div class="q-text">If you <span class="q-blank">______</span> water, it freezes.</div>
+      <div class="q-context">เลือกกริยาที่ถูกต้องสำหรับ Zero Conditional</div>
+      <div class="choices">
+        <button class="choice-btn" onclick="answer(1,'A','D')"><span class="choice-letter">A</span>froze</button>
+        <button class="choice-btn" onclick="answer(1,'B','D')"><span class="choice-letter">B</span>will freeze</button>
+        <button class="choice-btn" onclick="answer(1,'C','D')"><span class="choice-letter">C</span>would freeze</button>
+        <button class="choice-btn" onclick="answer(1,'D','D')"><span class="choice-letter">D</span>cool</button>
+      </div>
+      <div class="feedback" id="fb1">
+        <strong>✅ ถูกต้อง!</strong> ตอบ D: cool — Zero Conditional ใช้ If + V1, V1 (present simple ทั้งสองส่วน) เพราะพูดถึงกฎธรรมชาติ: "If you cool water (below 0°C), it freezes."
+      </div>
+    </div>
+
+    <!-- Q2 -->
+    <div class="q-card" id="q2">
+      <div class="q-num">ข้อที่ 2 / 10</div>
+      <div class="q-text">If she <span class="q-blank">______</span> harder, she will get a promotion.</div>
+      <div class="q-context">First Conditional — เลือกรูปกริยาที่ถูก</div>
+      <div class="choices">
+        <button class="choice-btn" onclick="answer(2,'A','B')"><span class="choice-letter">A</span>worked</button>
+        <button class="choice-btn" onclick="answer(2,'B','B')"><span class="choice-letter">B</span>works</button>
+        <button class="choice-btn" onclick="answer(2,'C','B')"><span class="choice-letter">C</span>will work</button>
+        <button class="choice-btn" onclick="answer(2,'D','B')"><span class="choice-letter">D</span>would work</button>
+      </div>
+      <div class="feedback" id="fb2">
+        <strong>✅ ถูกต้อง!</strong> ตอบ B: works — First Conditional ใช้ If + V1 (present simple) ตามด้วย will + V1 เพราะเป็นอนาคตที่มีโอกาสเกิดขึ้นจริง
+      </div>
+    </div>
+
+    <!-- Q3 -->
+    <div class="q-card" id="q3">
+      <div class="q-num">ข้อที่ 3 / 10</div>
+      <div class="q-text">If I <span class="q-blank">______</span> a superpower, I would fly.</div>
+      <div class="q-context">Second Conditional — สมมติที่ไม่เป็นจริง</div>
+      <div class="choices">
+        <button class="choice-btn" onclick="answer(3,'A','C')"><span class="choice-letter">A</span>have</button>
+        <button class="choice-btn" onclick="answer(3,'B','C')"><span class="choice-letter">B</span>will have</button>
+        <button class="choice-btn" onclick="answer(3,'C','C')"><span class="choice-letter">C</span>had</button>
+        <button class="choice-btn" onclick="answer(3,'D','C')"><span class="choice-letter">D</span>have had</button>
+      </div>
+      <div class="feedback" id="fb3">
+        <strong>✅ ถูกต้อง!</strong> ตอบ C: had — Second Conditional ใช้ If + V2 (past simple) + would + V1 เป็นการสมมติสิ่งที่ไม่เป็นจริงในปัจจุบัน
+      </div>
+    </div>
+
+    <!-- Q4 -->
+    <div class="q-card" id="q4">
+      <div class="q-num">ข้อที่ 4 / 10</div>
+      <div class="q-text">If they had arrived earlier, they <span class="q-blank">______</span> the concert.</div>
+      <div class="q-context">Third Conditional — เลือก main clause ที่ถูก</div>
+      <div class="choices">
+        <button class="choice-btn" onclick="answer(4,'A','C')"><span class="choice-letter">A</span>would catch</button>
+        <button class="choice-btn" onclick="answer(4,'B','C')"><span class="choice-letter">B</span>will have caught</button>
+        <button class="choice-btn" onclick="answer(4,'C','C')"><span class="choice-letter">C</span>would have caught</button>
+        <button class="choice-btn" onclick="answer(4,'D','C')"><span class="choice-letter">D</span>had caught</button>
+      </div>
+      <div class="feedback" id="fb4">
+        <strong>✅ ถูกต้อง!</strong> ตอบ C: would have caught — Third Conditional ใช้ If + had + V3 ตามด้วย would have + V3 เป็นการสมมติอดีตที่เปลี่ยนไม่ได้
+      </div>
+    </div>
+
+    <!-- Q5 -->
+    <div class="q-card" id="q5">
+      <div class="q-num">ข้อที่ 5 / 10</div>
+      <div class="q-text">เลือกประโยค Second Conditional ที่ถูกต้อง</div>
+      <div class="choices">
+        <button class="choice-btn" onclick="answer(5,'A','C')"><span class="choice-letter">A</span>If I am you, I will apologize.</button>
+        <button class="choice-btn" onclick="answer(5,'B','C')"><span class="choice-letter">B</span>If I was you, I will apologize.</button>
+        <button class="choice-btn" onclick="answer(5,'C','C')"><span class="choice-letter">C</span>If I were you, I would apologize.</button>
+        <button class="choice-btn" onclick="answer(5,'D','C')"><span class="choice-letter">D</span>If I had been you, I would apologize.</button>
+      </div>
+      <div class="feedback" id="fb5">
+        <strong>✅ ถูกต้อง!</strong> ตอบ C — Second Conditional ที่ถูกต้องใช้ "were" (Subjunctive Mood) กับทุก subject รวมถึง I ด้วย และใช้ would (ไม่ใช่ will) ใน main clause
+      </div>
+    </div>
+
+    <!-- Q6 -->
+    <div class="q-card" id="q6">
+      <div class="q-num">ข้อที่ 6 / 10</div>
+      <div class="q-text">What type of conditional is this?<br><em style="color:var(--green-dark)">"If you press this button, the alarm rings."</em></div>
+      <div class="choices">
+        <button class="choice-btn" onclick="answer(6,'A','A')"><span class="choice-letter">A</span>Zero Conditional</button>
+        <button class="choice-btn" onclick="answer(6,'B','A')"><span class="choice-letter">B</span>First Conditional</button>
+        <button class="choice-btn" onclick="answer(6,'C','A')"><span class="choice-letter">C</span>Second Conditional</button>
+        <button class="choice-btn" onclick="answer(6,'D','A')"><span class="choice-letter">D</span>Third Conditional</button>
+      </div>
+      <div class="feedback" id="fb6">
+        <strong>✅ ถูกต้อง!</strong> ตอบ A: Zero Conditional — ใช้ V1 ทั้งสองส่วน (press, rings) เป็นการบอกผลที่เกิดขึ้นเสมอเมื่อทำสิ่งนั้น เป็นเหตุ-ผลที่แน่นอน
+      </div>
+    </div>
+
+    <!-- Q7 -->
+    <div class="q-card" id="q7">
+      <div class="q-num">ข้อที่ 7 / 10</div>
+      <div class="q-text">If the weather <span class="q-blank">______</span> nice this weekend, we will have a picnic.</div>
+      <div class="q-context">เลือกกริยาที่เหมาะสม</div>
+      <div class="choices">
+        <button class="choice-btn" onclick="answer(7,'A','B')"><span class="choice-letter">A</span>would be</button>
+        <button class="choice-btn" onclick="answer(7,'B','B')"><span class="choice-letter">B</span>is</button>
+        <button class="choice-btn" onclick="answer(7,'C','B')"><span class="choice-letter">C</span>were</button>
+        <button class="choice-btn" onclick="answer(7,'D','B')"><span class="choice-letter">D</span>had been</button>
+      </div>
+      <div class="feedback" id="fb7">
+        <strong>✅ ถูกต้อง!</strong> ตอบ B: is — เนื่องจาก main clause ใช้ "will have" จึงเป็น First Conditional และ If clause ต้องใช้ V1 (present simple) คือ "is"
+      </div>
+    </div>
+
+    <!-- Q8 -->
+    <div class="q-card" id="q8">
+      <div class="q-num">ข้อที่ 8 / 10</div>
+      <div class="q-text">ประโยค Third Conditional แบบปฏิเสธที่ถูกต้องคือข้อใด?</div>
+      <div class="choices">
+        <button class="choice-btn" onclick="answer(8,'A','D')"><span class="choice-letter">A</span>If he didn't study, he wouldn't pass.</button>
+        <button class="choice-btn" onclick="answer(8,'B','D')"><span class="choice-letter">B</span>If he won't study, he won't pass.</button>
+        <button class="choice-btn" onclick="answer(8,'C','D')"><span class="choice-letter">C</span>If he doesn't have studied, he wouldn't have passed.</button>
+        <button class="choice-btn" onclick="answer(8,'D','D')"><span class="choice-letter">D</span>If he hadn't studied, he wouldn't have passed.</button>
+      </div>
+      <div class="feedback" id="fb8">
+        <strong>✅ ถูกต้อง!</strong> ตอบ D — Third Conditional ปฏิเสธใช้ "If + hadn't + V3, wouldn't have + V3" — A คือ Second Conditional, B ผิด grammar, C ผิดโครงสร้าง
+      </div>
+    </div>
+
+    <!-- Q9 -->
+    <div class="q-card" id="q9">
+      <div class="q-num">ข้อที่ 9 / 10</div>
+      <div class="q-text">"What <span class="q-blank">______</span> you do if you found a wallet on the street?"</div>
+      <div class="q-context">คำถาม Second Conditional</div>
+      <div class="choices">
+        <button class="choice-btn" onclick="answer(9,'A','C')"><span class="choice-letter">A</span>will</button>
+        <button class="choice-btn" onclick="answer(9,'B','C')"><span class="choice-letter">B</span>do</button>
+        <button class="choice-btn" onclick="answer(9,'C','C')"><span class="choice-letter">C</span>would</button>
+        <button class="choice-btn" onclick="answer(9,'D','C')"><span class="choice-letter">D</span>had</button>
+      </div>
+      <div class="feedback" id="fb9">
+        <strong>✅ ถูกต้อง!</strong> ตอบ C: would — เป็นประโยคคำถาม Second Conditional (If + V2, would + V1) เพราะ "found" เป็น past tense ใน if clause จึง main clause ต้องใช้ would
+      </div>
+    </div>
+
+    <!-- Q10 -->
+    <div class="q-card" id="q10">
+      <div class="q-num">ข้อที่ 10 / 10</div>
+      <div class="q-text">เลือกประโยคที่ใช้ conditional ได้ถูกต้องที่สุด</div>
+      <div class="choices">
+        <button class="choice-btn" onclick="answer(10,'A','B')"><span class="choice-letter">A</span>If I will see him, I tell him the news.</button>
+        <button class="choice-btn" onclick="answer(10,'B','B')"><span class="choice-letter">B</span>If I see him, I will tell him the news.</button>
+        <button class="choice-btn" onclick="answer(10,'C','B')"><span class="choice-letter">C</span>If I saw him, I will tell him the news.</button>
+        <button class="choice-btn" onclick="answer(10,'D','B')"><span class="choice-letter">D</span>If I had seen him, I will tell him the news.</button>
+      </div>
+      <div class="feedback" id="fb10">
+        <strong>✅ ถูกต้อง!</strong> ตอบ B — First Conditional ที่ถูกต้อง: If + V1 (see), will + V1 (tell) — A ผิดเพราะใช้ will ใน if clause, C ผิด tense, D ผิด conditional type
+      </div>
+    </div>
+
+    <div class="test-actions">
+      <button class="btn-green" onclick="checkAll()">✅ ตรวจคำตอบ</button>
+      <button class="btn-grey" onclick="resetTest()">🔄 ทำใหม่</button>
+    </div>
+
+    <div class="score-box" id="scoreBox">
+      <div class="score-big" id="scoreNum">0/10</div>
+      <div class="score-sub">คะแนนของคุณ</div>
+      <div class="score-msg" id="scoreMsg"></div>
+    </div>
+  </div>
+</section>
+
+<footer>
+  <strong>EduGrammar</strong> — If Clauses Learning Module<br>
+  สร้างเพื่อการเรียนรู้ภาษาอังกฤษ 🇬🇧
+</footer>
+
+<script>
+  // Tab switching
+  function switchTab(id, btn) {
+    document.querySelectorAll('.tab-content').forEach(t => t.classList.remove('active'));
+    document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+    document.getElementById('tab-' + id).classList.add('active');
+    btn.classList.add('active');
+  }
+
+  // Nav smooth scroll
+  document.querySelectorAll('.nav-link').forEach(link => {
+    link.addEventListener('click', function(e) {
+      e.preventDefault();
+      const target = document.querySelector(this.getAttribute('href'));
+      if (target) target.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      document.querySelectorAll('.nav-link').forEach(l => l.classList.remove('active'));
+      this.classList.add('active');
+    });
+  });
+
+  // Test logic
+  const answers = {};
+  const correctAnswers = { 1:'D', 2:'B', 3:'C', 4:'C', 5:'C', 6:'A', 7:'B', 8:'D', 9:'C', 10:'B' };
+
+  function answer(qNum, chosen, correct) {
+    if (answers[qNum]) return; // already answered
+    answers[qNum] = chosen;
+
+    const card = document.getElementById('q' + qNum);
+    const btns = card.querySelectorAll('.choice-btn');
+    btns.forEach(b => b.disabled = true);
+
+    const letters = ['A','B','C','D'];
+    btns.forEach((b, i) => {
+      const letter = letters[i];
+      if (letter === correct) b.classList.add('correct');
+      else if (letter === chosen && chosen !== correct) b.classList.add('wrong');
+    });
+
+    const fb = document.getElementById('fb' + qNum);
+    if (chosen === correct) {
+      fb.classList.add('correct');
+      fb.classList.remove('wrong');
+    } else {
+      fb.innerHTML = fb.innerHTML.replace('✅ ถูกต้อง!', '❌ ไม่ถูกต้อง — ');
+      fb.classList.add('wrong');
+      fb.classList.remove('correct');
+    }
+
+    updateProgress();
+  }
+
+  function updateProgress() {
+    const done = Object.keys(answers).length;
+    document.getElementById('progressBar').style.width = (done / 10 * 100) + '%';
+  }
+
+  function checkAll() {
+    // auto-answer unanswered ones with wrong answer to show correct
+    for (let i = 1; i <= 10; i++) {
+      if (!answers[i]) {
+        const correct = correctAnswers[i];
+        const card = document.getElementById('q' + i);
+        const btns = card.querySelectorAll('.choice-btn');
+        btns.forEach(b => b.disabled = true);
+        const letters = ['A','B','C','D'];
+        btns.forEach((b, idx) => {
+          if (letters[idx] === correct) b.classList.add('correct');
+        });
+        answers[i] = '__skip__';
+        const fb = document.getElementById('fb' + i);
+        fb.innerHTML = '⚠️ ยังไม่ได้ตอบ — ' + fb.innerHTML.replace('✅ ถูกต้อง!', '');
+        fb.classList.add('wrong');
+      }
+    }
+    updateProgress();
+
+    let score = 0;
+    for (let i = 1; i <= 10; i++) {
+      if (answers[i] === correctAnswers[i]) score++;
+    }
+
+    const scoreBox = document.getElementById('scoreBox');
+    scoreBox.classList.add('show');
+    document.getElementById('scoreNum').textContent = score + '/10';
+
+    let msg = '';
+    if (score === 10) msg = '🏆 เยี่ยมมาก! คุณเชี่ยวชาญ If Clauses แล้ว!';
+    else if (score >= 8) msg = '🌟 ดีมาก! เข้าใจดีเกือบสมบูรณ์แล้ว';
+    else if (score >= 6) msg = '👍 ผ่าน! ลองทบทวนส่วนที่ผิดอีกครั้ง';
+    else if (score >= 4) msg = '📚 ยังต้องฝึกเพิ่ม ลองอ่านโครงสร้างใหม่';
+    else msg = '💪 ไม่เป็นไร! เรียนรู้ใหม่ได้เลย ลองทำอีกครั้ง!';
+    document.getElementById('scoreMsg').textContent = msg;
+
+    scoreBox.scrollIntoView({ behavior: 'smooth', block: 'center' });
+  }
+
+  function resetTest() {
+    for (let i = 1; i <= 10; i++) {
+      const card = document.getElementById('q' + i);
+      const btns = card.querySelectorAll('.choice-btn');
+      btns.forEach(b => {
+        b.disabled = false;
+        b.classList.remove('correct','wrong');
+      });
+      const fb = document.getElementById('fb' + i);
+      fb.classList.remove('correct','wrong');
+      // reset text for wrong ones
+      const origTexts = {
+        1:'<strong>✅ ถูกต้อง!</strong> ตอบ D: cool — Zero Conditional ใช้ If + V1, V1 (present simple ทั้งสองส่วน) เพราะพูดถึงกฎธรรมชาติ: "If you cool water (below 0°C), it freezes."',
+        2:'<strong>✅ ถูกต้อง!</strong> ตอบ B: works — First Conditional ใช้ If + V1 (present simple) ตามด้วย will + V1 เพราะเป็นอนาคตที่มีโอกาสเกิดขึ้นจริง',
+        3:'<strong>✅ ถูกต้อง!</strong> ตอบ C: had — Second Conditional ใช้ If + V2 (past simple) + would + V1 เป็นการสมมติสิ่งที่ไม่เป็นจริงในปัจจุบัน',
+        4:'<strong>✅ ถูกต้อง!</strong> ตอบ C: would have caught — Third Conditional ใช้ If + had + V3 ตามด้วย would have + V3 เป็นการสมมติอดีตที่เปลี่ยนไม่ได้',
+        5:'<strong>✅ ถูกต้อง!</strong> ตอบ C — Second Conditional ที่ถูกต้องใช้ "were" (Subjunctive Mood) กับทุก subject รวมถึง I ด้วย และใช้ would (ไม่ใช่ will) ใน main clause',
+        6:'<strong>✅ ถูกต้อง!</strong> ตอบ A: Zero Conditional — ใช้ V1 ทั้งสองส่วน (press, rings) เป็นการบอกผลที่เกิดขึ้นเสมอเมื่อทำสิ่งนั้น เป็นเหตุ-ผลที่แน่นอน',
+        7:'<strong>✅ ถูกต้อง!</strong> ตอบ B: is — เนื่องจาก main clause ใช้ "will have" จึงเป็น First Conditional และ If clause ต้องใช้ V1 (present simple) คือ "is"',
+        8:'<strong>✅ ถูกต้อง!</strong> ตอบ D — Third Conditional ปฏิเสธใช้ "If + hadn\'t + V3, wouldn\'t have + V3" — A คือ Second Conditional, B ผิด grammar, C ผิดโครงสร้าง',
+        9:'<strong>✅ ถูกต้อง!</strong> ตอบ C: would — เป็นประโยคคำถาม Second Conditional (If + V2, would + V1) เพราะ "found" เป็น past tense ใน if clause จึง main clause ต้องใช้ would',
+        10:'<strong>✅ ถูกต้อง!</strong> ตอบ B — First Conditional ที่ถูกต้อง: If + V1 (see), will + V1 (tell) — A ผิดเพราะใช้ will ใน if clause, C ผิด tense, D ผิด conditional type'
+      };
+      fb.innerHTML = origTexts[i];
+    }
+    Object.keys(answers).forEach(k => delete answers[k]);
+    document.getElementById('progressBar').style.width = '0%';
+    document.getElementById('scoreBox').classList.remove('show');
+    document.getElementById('q1').scrollIntoView({ behavior:'smooth' });
+  }
+</script>
+</body>
+</html>
