@@ -1,0 +1,39 @@
+{% extends "base.html" %}
+{% block title %}Job Sheet{% endblock %}
+{% block topbar_title %}Job Sheet{% endblock %}
+{% block content %}
+<div class="card card-p" style="max-width:820px;margin:0 auto">
+  <div style="display:flex;justify-content:space-between;gap:12px;flex-wrap:wrap;border-bottom:1px solid var(--border);padding-bottom:12px;margin-bottom:14px">
+    <div><div style="font-size:1.15em;font-weight:900;color:var(--text)">{{ task.title }}</div><div style="font-family:var(--fm);color:var(--accent)">{{ task.sn or task.id }}</div></div>
+    <div><span class="badge badge-accent">{{ status_labels.get(task.status, task.status) }}</span></div>
+  </div>
+  <div class="grid-2" style="margin-bottom:14px">
+    <div class="card card-p">
+      <div class="sec-title" style="margin-bottom:8px">Customer</div>
+      <div>{{ task.customer.name }}</div><div>{{ task.customer.phone }}</div><div>{{ task.customer.email }}</div>
+    </div>
+    <div class="card card-p">
+      <div class="sec-title" style="margin-bottom:8px">Schedule</div>
+      <div>Created: {{ task.createdAt[:10] }}</div><div>Deadline: {{ task.deadline or '-' }}</div>
+    </div>
+  </div>
+  {% if task.specs_3d %}
+  <div class="card card-p" style="margin-bottom:14px">
+    <div class="sec-title" style="margin-bottom:8px">3D Specs</div>
+    <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(160px,1fr));gap:8px;font-size:.86em">
+      {% for k,v in task.specs_3d.items() if k!='files' %}<div><strong>{{ k }}:</strong> {{ v }}</div>{% endfor %}
+    </div>
+    {% if task.specs_3d.files %}<div style="margin-top:10px">{% for f in task.specs_3d.files %}<a class="btn btn-ghost btn-xs" href="/uploads/3d_models/{{ f.filename }}" download>{{ f.original }}</a>{% endfor %}</div>{% endif %}
+  </div>
+  {% endif %}
+  {% if task.quote %}<div class="card card-p" style="margin-bottom:14px"><div class="sec-title" style="margin-bottom:8px">Quote</div><div>Amount: ฿{{ task.quote.amount }}</div><div>Deposit: ฿{{ task.quote.deposit_amount }}</div><div>Balance: ฿{{ task.quote.balance_amount }}</div><div>Status: {{ task.quote.status }}</div></div>{% endif %}
+  <div class="card card-p">
+    <div class="sec-title" style="margin-bottom:8px">QC Checklist</div>
+    {% for c in ['Dimensions match spec','Surface quality checked','Support removed','Color/material correct','Quantity correct','Photos taken before delivery','Customer notified'] %}
+    <label style="display:block;padding:6px 0;border-bottom:1px solid var(--border2)"><input type="checkbox"> {{ c }}</label>
+    {% endfor %}
+  </div>
+  <div class="card card-p" style="margin-top:14px"><div class="sec-title" style="margin-bottom:8px">Timeline</div>{% for e in events %}<div style="font-size:.82em;border-bottom:1px solid var(--border2);padding:6px 0"><strong>{{ e.action }}</strong> · {{ e.created_at[:16].replace('T',' ') }}<div style="color:var(--text3)">{{ e.note }}</div></div>{% endfor %}</div>
+</div>
+{% endblock %}
+

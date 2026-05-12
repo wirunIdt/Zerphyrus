@@ -9,13 +9,15 @@ Bugs fixed:
   6. todos.json not initialized → added to _init loop
   7. .env encoding: auto-fix UTF-8 on startup
 """
-import json, os, uuid, secrets as _secrets, io as _io
+import json, os, uuid, secrets as _secrets, io as _io, zipfile, tempfile, shutil, smtplib
 from datetime import datetime, date, timedelta
 from functools import wraps
 from collections import defaultdict
+from email.message import EmailMessage
 
 from flask import (Flask, render_template, request, redirect, url_for,
                    session, jsonify, make_response, send_from_directory)
+from werkzeug.utils import secure_filename
 
 from promptpay import generate_promptpay_payload
 from queue_manager import (
@@ -59,15 +61,17 @@ from werkzeug.middleware.proxy_fix import ProxyFix
 app.wsgi_app = ProxyFix(app.wsgi_app, x_proto=1, x_host=1)
 
 PREFERRED_SCHEME = os.environ.get('PREFERRED_SCHEME', '')
-UPLOAD_FOLDER    = 'uploads'
+PROJECT_DIR      = os.path.dirname(os.path.abspath(__file__))
+UPLOAD_FOLDER    = os.path.join(PROJECT_DIR, 'uploads')
 QR_FOLDER        = os.path.join(UPLOAD_FOLDER, 'qr')
 SLIP_FOLDER      = os.path.join(UPLOAD_FOLDER, 'slips')
 PRODUCT_IMG_FOLDER = os.path.join(UPLOAD_FOLDER, 'products')
 ALLOWED_IMG      = {'png', 'jpg', 'jpeg', 'gif', 'webp'}
 MODEL_3D_FOLDER  = os.path.join(UPLOAD_FOLDER, '3d_models')
+GALLERY_FOLDER   = os.path.join(UPLOAD_FOLDER, 'gallery')
 ALLOWED_3D       = {'stl', 'obj', 'step', 'stp', '3mf', 'iges', 'igs', 'f3d', 'blend', 'fbx', 'zip'}
 
-for d in [UPLOAD_FOLDER, QR_FOLDER, SLIP_FOLDER, PRODUCT_IMG_FOLDER, MODEL_3D_FOLDER]:
+for d in [UPLOAD_FOLDER, QR_FOLDER, SLIP_FOLDER, PRODUCT_IMG_FOLDER, MODEL_3D_FOLDER, GALLERY_FOLDER]:
     os.makedirs(d, exist_ok=True)
 
 PROMPTPAY_PHONE  = os.environ.get('PROMPTPAY_PHONE', '0812345678')
@@ -97,6 +101,11 @@ for p, d in [
     ('orders_cart.json', {}),
     ('sn_counter.json', {'last_sn': 0}),
     ('todos.json', []),          # ← FIX 6
+    ('events.json', []),
+    ('notifications.json', []),
+    ('gallery.json', []),
+    ('reviews.json', []),
+    ('coupons.json', []),
 ]:
     _init(p, d)
 
@@ -123,8 +132,169 @@ read_products = lambda: _r('products.json', [])
 write_products= lambda d: _w('products.json', d)
 read_todos    = lambda: _r('todos.json', [])
 write_todos   = lambda d: _w('todos.json', d)
+read_events   = lambda: _r('events.json', [])
+write_events  = lambda d: _w('events.json', d)
+read_notifications  = lambda: _r('notifications.json', [])
+write_notifications = lambda d: _w('notifications.json', d)
+read_gallery  = lambda: _r('gallery.json', [])
+write_gallery = lambda d: _w('gallery.json', d)
+read_reviews  = lambda: _r('reviews.json', [])
+write_reviews = lambda d: _w('reviews.json', d)
+read_coupons  = lambda: _r('coupons.json', [])
+write_coupons = lambda d: _w('coupons.json', d)
 read_sn       = lambda: _r('sn_counter.json', {'last_sn': 0})
 write_sn      = lambda d: _w('sn_counter.json', d)
+
+STATUS_FLOW = ['pending', 'quoted', 'approved', 'inprogress', 'printing', 'postprocessing', 'qc', 'ready', 'delivered', 'completed', 'cancelled']
+STATUS_LABELS = {
+    'pending': 'Pending', 'quoted': 'Quoted', 'approved': 'Approved',
+    'inprogress': 'In Progress', 'printing': 'Printing',
+    'postprocessing': 'Post-processing', 'qc': 'QC',
+    'ready': 'Ready for Pickup', 'delivered': 'Delivered',
+    'completed': 'Completed', 'cancelled': 'Cancelled',
+}
+STATUS_PROGRESS = {
+    'pending': 10, 'quoted': 20, 'approved': 30, 'inprogress': 45,
+    'printing': 60, 'postprocessing': 72, 'qc': 82, 'ready': 92,
+    'delivered': 97, 'completed': 100, 'cancelled': 0,
+}
+
+def _now():
+    return datetime.now().isoformat()
+
+def find_task(tasks, task_id):
+    return next((t for t in tasks if t.get('id') == task_id), None)
+
+def add_event(task_id, action, note='', actor=None, meta=None):
+    events = read_events()
+    ev = {
+        'id': uuid.uuid4().hex[:12],
+        'task_id': task_id,
+        'action': action,
+        'note': note,
+        'actor': actor or session.get('username') or session.get('customer_name') or 'system',
+        'meta': meta or {},
+        'created_at': _now(),
+    }
+    events.insert(0, ev)
+    write_events(events)
+    return ev
+
+def events_for_task(task_id):
+    return [e for e in read_events() if e.get('task_id') == task_id]
+
+def log_notification(task_id, channel, target, status, subject='', error=''):
+    rows = read_notifications()
+    rows.insert(0, {
+        'id': uuid.uuid4().hex[:12], 'task_id': task_id, 'channel': channel,
+        'target': target, 'status': status, 'subject': subject, 'error': error,
+        'created_at': _now(),
+    })
+    write_notifications(rows)
+
+def send_email_notification(task, subject, body):
+    target = task.get('customer', {}).get('email', '')
+    if not target:
+        return
+    host = os.environ.get('SMTP_HOST', '')
+    if not host:
+        log_notification(task['id'], 'email', target, 'skipped', subject, 'SMTP_HOST not configured')
+        return
+    try:
+        msg = EmailMessage()
+        msg['Subject'] = subject
+        msg['From'] = os.environ.get('SMTP_FROM') or os.environ.get('SMTP_USER') or 'noreply@zerphyrus.local'
+        msg['To'] = target
+        msg.set_content(body)
+        port = int(os.environ.get('SMTP_PORT', '587'))
+        with smtplib.SMTP(host, port, timeout=5) as smtp:
+            if os.environ.get('SMTP_TLS', '1') != '0':
+                smtp.starttls()
+            user = os.environ.get('SMTP_USER', '')
+            if user:
+                smtp.login(user, os.environ.get('SMTP_PASSWORD', ''))
+            smtp.send_message(msg)
+        log_notification(task['id'], 'email', target, 'sent', subject)
+    except Exception as e:
+        log_notification(task['id'], 'email', target, 'failed', subject, str(e))
+
+def send_line_admin_notification(task, text):
+    token = os.environ.get('LINE_CHANNEL_ACCESS_TOKEN', '')
+    admin_id = os.environ.get('ADMIN_LINE_USER_ID', '')
+    if not token or not admin_id:
+        log_notification(task['id'], 'line', admin_id or '-', 'skipped', 'LINE admin notice', 'LINE not configured')
+        return
+    try:
+        import requests
+        resp = requests.post(
+            'https://api.line.me/v2/bot/message/push',
+            headers={'Authorization': f'Bearer {token}', 'Content-Type': 'application/json'},
+            json={'to': admin_id, 'messages': [{'type': 'text', 'text': text}]},
+            timeout=3,
+        )
+        log_notification(task['id'], 'line', admin_id, 'sent' if resp.ok else 'failed', 'LINE admin notice', resp.text[:300])
+    except Exception as e:
+        log_notification(task['id'], 'line', admin_id, 'failed', 'LINE admin notice', str(e))
+
+def notify_status_change(task, old_status, new_status):
+    title = task.get('sn') or task.get('title', task['id'])
+    subject = f'Order {title}: {STATUS_LABELS.get(new_status, new_status)}'
+    body = f"Your order status changed from {STATUS_LABELS.get(old_status, old_status)} to {STATUS_LABELS.get(new_status, new_status)}."
+    send_email_notification(task, subject, body)
+
+def calculate_3d_price(specs, overrides=None):
+    overrides = overrides or {}
+    rates = {'PLA': 3.0, 'ABS': 3.6, 'PETG': 3.8, 'TPU': 5.5, 'Resin': 7.0, 'Nylon': 6.5, 'ASA': 5.0, 'CF-PLA': 6.0}
+    quality = {'draft': .85, 'standard': 1.0, 'fine': 1.35, 'ultra': 1.8}
+    finish = {'as_printed': 0, 'sanded': 80, 'polished': 140, 'painted': 220}
+    support = {'none': 0, 'auto': 40, 'minimal': 60, 'full': 120}
+    qty = max(1, int(float(specs.get('quantity') or 1)))
+    sx = float(specs.get('size_x') or 0)
+    sy = float(specs.get('size_y') or 0)
+    sz = float(specs.get('size_z') or 0)
+    volume_cm3 = max(0, sx * sy * sz / 1000)
+    infill = max(5, min(100, float(specs.get('infill') or 20))) / 100
+    material = specs.get('material') or 'PLA'
+    base = volume_cm3 * rates.get(material, 3.0) * (0.45 + infill) * quality.get(specs.get('quality'), 1.0) * qty
+    fees = finish.get(specs.get('finish'), 0) + support.get(specs.get('support'), 40)
+    minimum = float(overrides.get('minimum') or 150)
+    discount = float(overrides.get('discount') or 0)
+    amount = max(minimum, base + fees - discount)
+    deposit_percent = float(overrides.get('deposit_percent') or 50)
+    return {
+        'volume_cm3': round(volume_cm3, 2), 'material_rate': rates.get(material, 3.0),
+        'subtotal': round(base + fees, 2), 'discount': round(discount, 2),
+        'amount': round(amount, 2), 'deposit_percent': deposit_percent,
+        'deposit_amount': round(amount * deposit_percent / 100, 2),
+        'balance_amount': round(amount - (amount * deposit_percent / 100), 2),
+    }
+
+def build_action_items(tasks, slips):
+    today = date.today()
+    items = []
+    for t in tasks:
+        status = t.get('status', 'pending')
+        quote = t.get('quote', {})
+        if t.get('specs_3d') and quote.get('status') in (None, '', 'draft', 'needed'):
+            items.append({'type': 'quote', 'task': t, 'label': 'Needs quote', 'tone': 'amber'})
+        for s in slips.get(t['id'], []):
+            if s.get('status') == 'pending':
+                items.append({'type': 'slip', 'task': t, 'label': 'Slip pending', 'tone': 'green'})
+        dl = t.get('deadline')
+        if dl and status not in ('completed', 'cancelled', 'delivered'):
+            try:
+                days = (date.fromisoformat(dl[:10]) - today).days
+                if days <= 1:
+                    items.append({'type': 'deadline', 'task': t, 'label': f'Deadline {days}d', 'tone': 'red' if days < 0 else 'amber'})
+            except Exception:
+                pass
+        try:
+            updated = datetime.fromisoformat(t.get('updatedAt') or t.get('createdAt')).date()
+            if status == 'pending' and (today - updated).days >= 1:
+                items.append({'type': 'stale', 'task': t, 'label': 'Pending >24h', 'tone': 'amber'})
+        except Exception:
+            pass
+    return items[:12]
 
 def next_sn() -> str:
     counter = read_sn(); counter['last_sn'] = counter.get('last_sn', 0) + 1; write_sn(counter)
@@ -221,6 +391,10 @@ def admin_context(tasks_override=None):
         queue_tasks=get_queue_with_tasks(all_tasks, cal),
         qr_image=get_qr_image(), all_slips=slips,
         pending_slips=pending_slips_count(), todos=read_todos(),
+        action_items=build_action_items(all_tasks, slips),
+        status_flow=STATUS_FLOW, status_labels=STATUS_LABELS,
+        events=read_events(), notifications=read_notifications()[:20],
+        gallery=read_gallery(), reviews=read_reviews(), coupons=read_coupons(),
     )
 
 def admin_required(f):
@@ -250,6 +424,7 @@ def submit_order():
         'createdAt': datetime.now().isoformat(), 'updatedAt': datetime.now().isoformat(),
     }
     tasks.insert(0, task); write_tasks(tasks); code = create_ticket(task)
+    add_event(task['id'], 'order_created', 'Order submitted', actor=task['customer']['name'])
     return render_template('order_form.html', success=True, ticket_code=code,
                            customer_name=task['customer']['name'], task_id=task['id'],
                            order_sn=task.get('sn',''), active_page='order')
@@ -342,9 +517,17 @@ def model_submit():
         'createdAt':   datetime.now().isoformat(),
         'updatedAt':   datetime.now().isoformat(),
     }
+    task['quote'] = {
+        'status': 'needed',
+        'auto_pricing': calculate_3d_price(specs_3d),
+        'created_at': datetime.now().isoformat(),
+    }
     tasks.insert(0, task)
     write_tasks(tasks)
     code = create_ticket(task)
+    add_event(task['id'], 'order_created', '3D order submitted', actor=task['customer']['name'])
+    add_event(task['id'], 'quote_needed', 'Waiting for admin quote')
+    send_line_admin_notification(task, f"New 3D order needs quote: {task.get('sn','')} {task.get('title','')}")
     return render_template('model.html', success=True, ticket_code=code,
                            customer_name=task['customer']['name'],
                            task_id=task['id'], order_sn=task.get('sn', ''),
@@ -371,6 +554,13 @@ def payment(task_id):
     if not task: return 'ไม่พบออเดอร์', 404
     tickets = read_tickets(); code = next((c for c,tk in tickets.items() if tk['task_id']==task_id), '')
     amount = request.args.get('amount', type=float)
+    pay_part = request.args.get('part', '')
+    quote = task.get('quote', {})
+    if amount is None and quote.get('status') == 'approved':
+        if pay_part == 'balance':
+            amount = quote.get('balance_amount') or quote.get('amount')
+        else:
+            amount = quote.get('deposit_amount') or quote.get('amount')
     qr_image = get_qr_image()
     payload = generate_promptpay_payload(PROMPTPAY_PHONE, amount) if not qr_image else ''
     return render_template('payment.html', task=task, ticket_code=code,
@@ -393,6 +583,8 @@ def upload_slip(task_id):
     slips.setdefault(task_id, []).append({'file': f'slips/{fname}', 'uploaded_at': datetime.now().isoformat(),
                                            'status': 'pending', 'note': '', 'amount': request.form.get('amount','')})
     write_slips(slips)
+    add_event(task_id, 'slip_uploaded', f"Amount: {request.form.get('amount','')}", actor=task['customer'].get('name','customer'))
+    send_line_admin_notification(task, f"Payment slip uploaded for {task.get('sn','')} amount {request.form.get('amount','')}")
     tickets = read_tickets(); code = next((c for c,tk in tickets.items() if tk['task_id']==task_id), '')
     return render_template('payment.html', task=task, ticket_code=code,
                            promptpay_payload='', promptpay_phone=PROMPTPAY_PHONE,
@@ -486,6 +678,29 @@ def contact():
         if name and (email or phone): sent = True
     return render_template('contact.html', sent=sent, promptpay_phone=PROMPTPAY_PHONE, active_page='contact')
 
+@app.route('/gallery')
+def gallery():
+    items = [g for g in read_gallery() if g.get('active', True)]
+    return render_template('gallery.html', items=items, reviews=read_reviews(), active_page='gallery')
+
+@app.route('/review/<task_id>', methods=['GET','POST'])
+def review_order(task_id):
+    tasks = read_tasks(); task = find_task(tasks, task_id)
+    if not task: return 'not found', 404
+    if request.method == 'POST':
+        reviews = read_reviews()
+        row = {
+            'id': uuid.uuid4().hex[:12], 'task_id': task_id,
+            'name': request.form.get('name') or task.get('customer', {}).get('name', ''),
+            'rating': int(request.form.get('rating') or 5),
+            'comment': request.form.get('comment','').strip(),
+            'active': True, 'created_at': _now(),
+        }
+        reviews.insert(0, row); write_reviews(reviews)
+        add_event(task_id, 'review_submitted', f"{row['rating']} stars", actor=row['name'])
+        return render_template('review.html', task=task, submitted=True, review=row)
+    return render_template('review.html', task=task, submitted=False)
+
 # ══════════════════════════════════════════════════════════════════════════════
 #  ADMIN ROUTES
 # ══════════════════════════════════════════════════════════════════════════════
@@ -507,15 +722,20 @@ def filter_tasks(status):
 def update_status():
     task_id = request.form.get('task_id','').strip()
     new_status = request.form.get('new_status','').strip()
-    if new_status not in {'pending','inprogress','completed','cancelled'}:
+    if new_status not in set(STATUS_FLOW):
         return jsonify({'status':'error','error':'invalid status'}), 400
     tasks = read_tasks()
     for t in tasks:
         if t['id'] == task_id:
+            old_status = t.get('status', 'pending')
             if new_status == 'completed' and t['status'] != 'completed':
                 add_stamp(t['customer']['phone'], t['customer']['name'])
             t['status'] = new_status; t['updatedAt'] = datetime.now().isoformat()
-            t['updatedBy'] = session.get('username',''); break
+            t['updatedBy'] = session.get('username','')
+            if old_status != new_status:
+                add_event(task_id, 'status_changed', f"{STATUS_LABELS.get(old_status, old_status)} → {STATUS_LABELS.get(new_status, new_status)}")
+                notify_status_change(t, old_status, new_status)
+            break
     write_tasks(tasks)
     updated = next((t for t in tasks if t['id']==task_id), None)
     return jsonify({'status':'ok','task':updated})
@@ -525,19 +745,174 @@ def update_status():
 def delete_task():
     tid = request.form.get('task_id')
     write_tasks([t for t in read_tasks() if t['id']!=tid])
+    add_event(tid, 'task_deleted', 'Task removed from admin dashboard')
     return jsonify({'status':'ok'})
+
+@app.route('/admin/task_events/<task_id>')
+@admin_required
+def admin_task_events(task_id):
+    return jsonify({'status': 'ok', 'events': events_for_task(task_id)})
+
+@app.route('/admin/quote', methods=['POST'])
+@admin_required
+def admin_quote():
+    task_id = request.form.get('task_id','')
+    tasks = read_tasks(); task = find_task(tasks, task_id)
+    if not task: return jsonify({'status':'error','error':'not found'}), 404
+    auto = calculate_3d_price(task.get('specs_3d', {}), {
+        'discount': request.form.get('discount', 0) or 0,
+        'deposit_percent': request.form.get('deposit_percent', 50) or 50,
+        'minimum': request.form.get('minimum', 150) or 150,
+    })
+    amount = float(request.form.get('amount') or auto['amount'])
+    deposit_percent = float(request.form.get('deposit_percent') or auto['deposit_percent'])
+    deposit_amount = round(amount * deposit_percent / 100, 2)
+    task['quote'] = {
+        **auto, 'amount': round(amount, 2), 'deposit_percent': deposit_percent,
+        'deposit_amount': deposit_amount, 'balance_amount': round(amount - deposit_amount, 2),
+        'note': request.form.get('note','').strip(), 'status': 'sent',
+        'sent_at': _now(), 'sent_by': session.get('username',''),
+    }
+    task['status'] = 'quoted'
+    task['updatedAt'] = _now()
+    write_tasks(tasks)
+    add_event(task_id, 'quote_sent', f"Quote {amount:.2f} THB, deposit {deposit_amount:.2f} THB")
+    send_email_notification(task, 'Quote ready for your order', f"Quote amount: {amount:.2f} THB\nDeposit: {deposit_amount:.2f} THB")
+    return jsonify({'status':'ok','quote':task['quote'], 'task': task})
+
+@app.route('/quote/<task_id>/<action>', methods=['POST'])
+def customer_quote_action(task_id, action):
+    if action not in {'approve', 'reject'}:
+        return 'invalid action', 400
+    tasks = read_tasks(); task = find_task(tasks, task_id)
+    if not task: return 'not found', 404
+    quote = task.setdefault('quote', {})
+    quote['status'] = 'approved' if action == 'approve' else 'rejected'
+    quote['responded_at'] = _now()
+    quote['customer_note'] = request.form.get('note','')
+    if action == 'approve':
+        task['status'] = 'approved'
+    task['updatedAt'] = _now()
+    write_tasks(tasks)
+    add_event(task_id, 'quote_' + quote['status'], quote.get('customer_note',''), actor=task.get('customer', {}).get('name','customer'))
+    send_line_admin_notification(task, f"Quote {quote['status']} for {task.get('sn','')}")
+    if action == 'approve':
+        return redirect(url_for('payment', task_id=task_id))
+    return redirect(url_for('customer_dashboard'))
+
+@app.route('/admin/backup')
+@admin_required
+def admin_backup():
+    buf = _io.BytesIO()
+    with zipfile.ZipFile(buf, 'w', zipfile.ZIP_DEFLATED) as z:
+        for name in [f for f in os.listdir('.') if f.endswith('.json')]:
+            z.write(name, name)
+        for root, _, files in os.walk(UPLOAD_FOLDER):
+            for fn in files:
+                path = os.path.join(root, fn)
+                z.write(path, os.path.relpath(path, PROJECT_DIR))
+    buf.seek(0)
+    resp = make_response(buf.getvalue())
+    resp.headers['Content-Type'] = 'application/zip'
+    resp.headers['Content-Disposition'] = f'attachment; filename="zerphyrus_backup_{datetime.now().strftime("%Y%m%d_%H%M")}.zip"'
+    return resp
+
+@app.route('/admin/restore', methods=['POST'])
+@admin_required
+def admin_restore():
+    file = request.files.get('backup')
+    if not file or not file.filename.endswith('.zip'):
+        return jsonify({'status':'error','error':'zip required'}), 400
+    tmp = tempfile.NamedTemporaryFile(delete=False, suffix='.zip')
+    file.save(tmp.name); tmp.close()
+    restored = []
+    try:
+        with zipfile.ZipFile(tmp.name) as z:
+            for info in z.infolist():
+                name = info.filename.replace('\\','/')
+                if '..' in name or name.startswith('/'):
+                    continue
+                if name.endswith('.json') and '/' not in name:
+                    with z.open(info) as src, open(name, 'wb') as dst:
+                        shutil.copyfileobj(src, dst)
+                    restored.append(name)
+                elif name.startswith('uploads/'):
+                    target = os.path.join(PROJECT_DIR, name)
+                    os.makedirs(os.path.dirname(target), exist_ok=True)
+                    with z.open(info) as src, open(target, 'wb') as dst:
+                        shutil.copyfileobj(src, dst)
+                    restored.append(name)
+        add_event('system', 'backup_restored', ', '.join(restored[:20]))
+        return jsonify({'status':'ok','restored':restored})
+    finally:
+        try: os.unlink(tmp.name)
+        except Exception: pass
+
+@app.route('/admin/coupons/add', methods=['POST'])
+@admin_required
+def admin_coupon_add():
+    coupons = read_coupons()
+    code = request.form.get('code','').strip().upper()
+    if not code: return jsonify({'status':'error','error':'code required'}), 400
+    coupons = [c for c in coupons if c.get('code') != code]
+    coupons.insert(0, {
+        'code': code, 'type': request.form.get('type','fixed'),
+        'value': float(request.form.get('value') or 0),
+        'active': True, 'created_at': _now(), 'created_by': session.get('username',''),
+    })
+    write_coupons(coupons)
+    return jsonify({'status':'ok','coupons':coupons})
+
+@app.route('/admin/gallery/add', methods=['POST'])
+@admin_required
+def admin_gallery_add():
+    task_id = request.form.get('task_id','')
+    tasks = read_tasks(); task = find_task(tasks, task_id) if task_id else None
+    file = request.files.get('image')
+    image_path = request.form.get('image','').strip()
+    if file and file.filename and allowed_file(file.filename):
+        ext = file.filename.rsplit('.', 1)[1].lower()
+        fname = f"{int(datetime.now().timestamp())}_{secure_filename(file.filename)}"
+        if not fname.lower().endswith('.' + ext):
+            fname += '.' + ext
+        file.save(os.path.join(GALLERY_FOLDER, fname))
+        image_path = f'gallery/{fname}'
+    if not image_path:
+        return jsonify({'status':'error','error':'image required'}), 400
+    gallery_items = read_gallery()
+    item = {
+        'id': uuid.uuid4().hex[:12], 'task_id': task_id,
+        'title': request.form.get('title') or (task.get('title') if task else 'Finished work'),
+        'description': request.form.get('description',''),
+        'image': image_path, 'active': True, 'created_at': _now(),
+    }
+    gallery_items.insert(0, item); write_gallery(gallery_items)
+    if task_id: add_event(task_id, 'gallery_added', item['title'])
+    return jsonify({'status':'ok','item':item})
+
+@app.route('/admin/job_sheet/<task_id>')
+@admin_required
+def admin_job_sheet(task_id):
+    tasks = read_tasks(); task = find_task(tasks, task_id)
+    if not task: return 'not found', 404
+    return render_template('job_sheet.html', task=task, events=events_for_task(task_id), status_labels=STATUS_LABELS)
 
 @app.route('/admin/upload_qr', methods=['POST'])
 @admin_required
 def upload_qr():
     file = request.files.get('qr')
+    wants_json = request.headers.get('X-Requested-With') == 'XMLHttpRequest'
     if not file or not allowed_file(file.filename):
+        if wants_json:
+            return jsonify({'status': 'error', 'message': 'bad_file'}), 400
         return redirect(url_for('line_config')+'?error=bad_file')
     for ext in ALLOWED_IMG:
         old = os.path.join(QR_FOLDER, f'promptpay.{ext}')
         if os.path.exists(old): os.remove(old)
     ext = file.filename.rsplit('.',1)[1].lower()
     file.save(os.path.join(QR_FOLDER, f'promptpay.{ext}'))
+    if wants_json:
+        return jsonify({'status': 'ok', 'qr_image': f'qr/promptpay.{ext}'})
     return redirect(url_for('line_config')+'?qr_saved=1')
 
 @app.route('/admin/delete_qr', methods=['POST'])
@@ -558,11 +933,14 @@ def verify_slip():
         task_slips[slip_idx]['status'] = 'approved' if action=='approve' else 'rejected'
         task_slips[slip_idx]['note'] = note; task_slips[slip_idx]['verified_at'] = datetime.now().isoformat()
         task_slips[slip_idx]['verified_by'] = session.get('username','')
+        add_event(task_id, 'slip_verified', task_slips[slip_idx]['status'] + (f": {note}" if note else ''))
         if action == 'approve':
             tasks = read_tasks()
             for t in tasks:
                 if t['id']==task_id and t['status']=='pending':
                     t['status']='inprogress'; t['updatedAt']=datetime.now().isoformat()
+                    add_event(task_id, 'status_changed', 'Pending → In Progress')
+                    notify_status_change(t, 'pending', 'inprogress')
             write_tasks(tasks)
     write_slips(slips)
     return jsonify({'status':'ok','slip_status': task_slips[slip_idx]['status'] if 0 <= slip_idx < len(task_slips) else ''})
@@ -637,7 +1015,8 @@ def line_config():
     if request.method == 'POST':
         lines = []
         for k in ['LINE_CHANNEL_ACCESS_TOKEN','LINE_CHANNEL_SECRET','ADMIN_LINE_USER_ID',
-                  'PROMPTPAY_PHONE','COMPANY_NAME','PREFERRED_SCHEME']:
+                  'PROMPTPAY_PHONE','COMPANY_NAME','PREFERRED_SCHEME',
+                  'SMTP_HOST','SMTP_PORT','SMTP_USER','SMTP_PASSWORD','SMTP_FROM','SMTP_TLS']:
             v = request.form.get(k,'').strip()
             if v: os.environ[k] = v; lines.append(f"{k}={v}")
         if lines:
@@ -648,6 +1027,9 @@ def line_config():
                            secret=os.environ.get('LINE_CHANNEL_SECRET',''),
                            admin_id=os.environ.get('ADMIN_LINE_USER_ID',''),
                            promptpay=PROMPTPAY_PHONE, company=COMPANY_NAME, scheme=PREFERRED_SCHEME,
+                           smtp_host=os.environ.get('SMTP_HOST',''), smtp_port=os.environ.get('SMTP_PORT','587'),
+                           smtp_user=os.environ.get('SMTP_USER',''), smtp_password=os.environ.get('SMTP_PASSWORD',''),
+                           smtp_from=os.environ.get('SMTP_FROM',''), smtp_tls=os.environ.get('SMTP_TLS','1'),
                            webhook_url=get_webhook_url())
 
 @app.route('/admin/todos/add', methods=['POST'])
@@ -982,6 +1364,7 @@ def customer_dashboard():
         tasks_with_info.append(tc)
     return render_template('customer_dashboard.html',
                            customer=customer, tasks=tasks_with_info,
+                           status_labels=STATUS_LABELS, status_progress=STATUS_PROGRESS,
                            active_page='customer_dash')
 
 @app.route('/customer/profile', methods=['GET','POST'])

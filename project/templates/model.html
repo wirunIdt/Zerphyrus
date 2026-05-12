@@ -533,7 +533,19 @@ function handleFileRef(input){
 }
 
 /* ── Submit loading ── */
-document.getElementById('modelForm').addEventListener('submit',function(){
+document.getElementById('modelForm').insertAdjacentHTML('beforeend','<div id="uploadProgressWrap" style="display:none;margin-top:12px"><div style="height:8px;background:var(--border);border-radius:8px;overflow:hidden"><div id="uploadProgressBar" style="height:100%;width:0;background:var(--accent);transition:width .2s"></div></div><div id="uploadProgressText" style="font-size:.75em;color:var(--text3);margin-top:5px">0%</div></div>');
+document.getElementById('modelForm').addEventListener('submit',function(e){
+  const file=document.getElementById('model_file_input')?.files?.[0];
+  if(file && file.size>5*1024*1024 && window.XMLHttpRequest){
+    e.preventDefault();
+    const form=this, btn=document.getElementById('submitBtn'), wrap=document.getElementById('uploadProgressWrap'), bar=document.getElementById('uploadProgressBar'), txt=document.getElementById('uploadProgressText');
+    const xhr=new XMLHttpRequest(); const fd=new FormData(form);
+    btn.disabled=true; wrap.style.display='block'; txt.textContent='0%';
+    xhr.upload.onprogress=ev=>{if(ev.lengthComputable){const p=Math.round(ev.loaded/ev.total*100);bar.style.width=p+'%';txt.textContent=p+'%';}};
+    xhr.onload=()=>{if(xhr.status>=200&&xhr.status<400){document.open();document.write(xhr.responseText);document.close();}else{btn.disabled=false;txt.textContent='Upload failed';}};
+    xhr.onerror=()=>{btn.disabled=false;txt.textContent='Upload failed';};
+    xhr.open('POST',form.action); xhr.send(fd); return;
+  }
   const btn=document.getElementById('submitBtn');
   btn.disabled=true;
   btn.innerHTML='⟳ กำลังส่ง...';

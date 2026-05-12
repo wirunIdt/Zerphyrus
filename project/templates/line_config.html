@@ -21,7 +21,7 @@
           <input type="file" id="qrInput" name="qr" accept="image/*" style="display:none" onchange="doUploadQR(this)">
           <div style="display:flex;gap:8px;flex-wrap:wrap">
             <button type="button" id="qrUploadBtn" class="btn btn-primary btn-sm" onclick="document.getElementById('qrInput').click()">📁 เลือก & อัปโหลด QR</button>
-            {% if qr_image %}<form action="/admin/delete_qr" method="post" style="display:contents"><button type="submit" class="btn btn-ghost btn-sm" style="color:var(--red)" onclick="return confirm('ลบ QR Code?')">🗑 ลบ QR</button></form>{% endif %}
+            {% if qr_image %}<button type="submit" formmethod="post" formaction="/admin/delete_qr" class="btn btn-ghost btn-sm" style="color:var(--red)" onclick="return confirm('ลบ QR Code?')">🗑 ลบ QR</button>{% endif %}
           </div>
         </form>
       </div>
@@ -63,11 +63,13 @@ async function doUploadQR(input){
   if(btn){btn.disabled=true;btn.textContent='⟳ กำลังอัปโหลด...';}
   try{
     const fd=new FormData();fd.append('qr',file);
-    const resp=await fetch('/admin/upload_qr',{method:'POST',body:fd});
-    if(resp.ok||resp.redirected){
+    const resp=await fetch('/admin/upload_qr',{method:'POST',body:fd,headers:{'X-Requested-With':'XMLHttpRequest'}});
+    const data=await resp.json().catch(()=>({}));
+    if(resp.ok&&data.status==='ok'){
       let el=document.getElementById('qrStatus');
       if(!el){el=document.createElement('div');el.id='qrStatus';el.style.cssText='margin-top:10px';document.getElementById('qrForm').after(el);}
       el.innerHTML='<span class="badge badge-green">✅ อัปโหลด QR Code สำเร็จ</span>';
+      document.getElementById('qrPickBox').innerHTML=`<img src="/uploads/${data.qr_image}?t=${Date.now()}" alt="QR" style="width:100%;height:100%;object-fit:contain">`;
       if(btn){btn.disabled=false;btn.textContent='📁 เลือก & อัปโหลด QR';}
     }else throw new Error('fail');
   }catch(err){if(btn){btn.disabled=false;btn.textContent='📁 เลือก & อัปโหลด QR';}document.getElementById('qrForm').submit();}

@@ -115,8 +115,27 @@
         </div>
         {% endif %}
 
+        {% if t.quote and t.quote.status in ['sent','approved','rejected'] %}
+        <div style="font-size:.78em;background:var(--surface2);border-radius:var(--r-sm);padding:8px 10px;margin:8px 0;color:var(--text2)">
+          <strong>Quote:</strong> ฿{{ '%.2f'|format(t.quote.amount or 0) }}
+          {% if t.quote.deposit_amount %} · Deposit ฿{{ '%.2f'|format(t.quote.deposit_amount) }}{% endif %}
+          · <span class="badge badge-{% if t.quote.status=='approved'%}green{% elif t.quote.status=='rejected'%}red{% else %}amber{% endif %}">{{ t.quote.status }}</span>
+          {% if t.quote.note %}<div style="margin-top:4px;color:var(--text3)">{{ t.quote.note }}</div>{% endif %}
+          {% if t.quote.status=='sent' %}
+          <form method="post" action="/quote/{{ t.id }}/approve" style="display:inline-flex;gap:6px;margin-top:8px">
+            <button class="btn btn-success btn-xs">Approve & Pay Deposit</button>
+          </form>
+          <form method="post" action="/quote/{{ t.id }}/reject" style="display:inline-flex;gap:6px;margin-top:8px">
+            <input name="note" class="input" placeholder="Reason" style="height:28px;width:150px">
+            <button class="btn btn-ghost btn-xs" style="color:var(--red)">Reject</button>
+          </form>
+          {% endif %}
+        </div>
+        {% endif %}
+
         <!-- Actions -->
         <div style="display:flex;gap:6px;flex-wrap:wrap">
+          {% if t.status in ['completed','delivered'] %}<a href="/review/{{ t.id }}" class="btn btn-ghost btn-xs">Review</a>{% endif %}
           <a href="/payment/{{ t.id }}" class="btn btn-ghost btn-xs" style="color:var(--green)" data-th="💳 ชำระเงิน" data-en="💳 Pay">💳 ชำระเงิน</a>
           <a href="/order_pdf/{{ t.id }}" class="btn btn-ghost btn-xs" data-th="📄 PDF" data-en="📄 PDF">📄 PDF</a>
           {% if t.specs_3d %}

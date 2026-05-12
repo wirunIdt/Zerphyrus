@@ -69,6 +69,34 @@
   <div class="grad-card" style="background:var(--c-orange)"><div class="gc-label"><span data-th="กำลังทำ" data-en="In Progress">กำลังทำ</span><span class="gc-icon">⚙️</span></div><div class="gc-value">{{ stats.inprogress }}</div><div class="gc-change"><span class="arrow">↗</span> <span data-th="กำลังดำเนินการ" data-en="In progress">กำลังดำเนินการ</span></div></div>
   <div class="grad-card" style="background:var(--c-green)"><div class="gc-label"><span data-th="เสร็จสิ้น" data-en="Completed">เสร็จสิ้น</span><span class="gc-icon">✅</span></div><div class="gc-value">{{ stats.completed }}</div><div class="gc-change"><span class="arrow">↑</span> <span data-th="งานเสร็จ" data-en="Done">งานเสร็จ</span></div></div>
 </div>
+{% if action_items %}
+<div class="card card-p" style="margin-bottom:16px">
+  <div class="sec-title" style="margin-bottom:10px">Today Ops</div>
+  <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(230px,1fr));gap:8px">
+    {% for it in action_items %}
+    <div style="border-left:3px solid var(--{{ it.tone }});background:var(--surface2);border-radius:var(--r-sm);padding:9px 11px">
+      <div style="font-size:.72em;font-weight:700;color:var(--{{ it.tone }})">{{ it.label }}</div>
+      <div style="font-size:.82em;font-weight:700;color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ it.task.sn or it.task.id[:8] }} · {{ it.task.title }}</div>
+      <div style="display:flex;gap:6px;margin-top:6px;flex-wrap:wrap">
+        <a class="btn btn-ghost btn-xs" href="/payment/{{ it.task.id }}">Payment</a>
+        {% if it.task.specs_3d %}<a class="btn btn-ghost btn-xs" href="/admin/job_sheet/{{ it.task.id }}" target="_blank">Job Sheet</a>{% endif %}
+      </div>
+    </div>
+    {% endfor %}
+  </div>
+</div>
+{% endif %}
+<div class="card card-p" style="margin-bottom:16px">
+  <div class="sec-title" style="margin-bottom:10px">Ops Tools</div>
+  <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">
+    <a href="/admin/backup" class="btn btn-secondary btn-sm">Backup ZIP</a>
+    <form action="/admin/restore" method="post" enctype="multipart/form-data" style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+      <input type="file" name="backup" accept=".zip" class="input" style="max-width:220px">
+      <button class="btn btn-ghost btn-sm" onclick="return confirm('Restore backup and overwrite current JSON/uploads?')">Restore</button>
+    </form>
+    <a href="/gallery" class="btn btn-ghost btn-sm" target="_blank">Public Gallery</a>
+  </div>
+</div>
 <div class="tab-bar">
   <button class="tab-btn on" onclick="switchTab(this,'tasks')" data-th="📋 งาน" data-en="📋 Tasks">📋 งาน</button>
   <button class="tab-btn" onclick="switchTab(this,'analytics')" data-th="📊 Analytics" data-en="📊 Analytics">📊 Analytics</button>
@@ -104,11 +132,15 @@
         <div class="t-meta">👤 {{ t.customer.name }} · 📞 {{ t.customer.phone }}{%if t.deadline%} · 📅 {{ t.deadline }}{%endif%}</div>
         {%if t.description%}<div class="t-desc">{{ t.description }}</div>{%endif%}
         <div class="t-footer">
+          <button class="btn btn-ghost btn-xs" style="color:#0ea5e9" onclick="openQuote('{{ t.id }}', {{ (t.quote.auto_pricing.amount if t.quote and t.quote.auto_pricing else (t.quote.amount if t.quote else 0))|default(0)|tojson }})">Quote</button>
+          <button class="btn btn-ghost btn-xs" onclick="viewTimeline('{{ t.id }}')">Timeline</button>
+          <a href="/admin/job_sheet/{{ t.id }}" target="_blank" class="btn btn-ghost btn-xs">Job</a>
           <select class="status-sel" onchange="changeStatus('{{ t.id }}',this)">
             <option value="pending" {%if t.status=='pending'%}selected{%endif%}>⏳ รอ</option>
             <option value="inprogress" {%if t.status=='inprogress'%}selected{%endif%}>⚙️ กำลังทำ</option>
             <option value="completed" {%if t.status=='completed'%}selected{%endif%}>✅ เสร็จ</option>
             <option value="cancelled" {%if t.status=='cancelled'%}selected{%endif%}>❌ ยกเลิก</option>
+            {% for st in ['quoted','approved','printing','postprocessing','qc','ready','delivered'] %}<option value="{{ st }}" {%if t.status==st%}selected{%endif%}>{{ status_labels.get(st, st) }}</option>{% endfor %}
           </select>
           <a href="/admin/order_pdf/{{ t.id }}?qr=1" class="btn btn-ghost btn-xs">📄 PDF</a>
           {% if t.specs_3d %}<a href="/admin/spec_sheet/{{ t.id }}" target="_blank" class="btn btn-ghost btn-xs" style="color:#8b5cf6">📋 Spec</a>{% endif %}
@@ -374,6 +406,26 @@ async function removeCalDate(ds,btn){setLoading(btn,true);try{const d=await post
 async function verifySlip(tid,idx,action,btn){const note=document.getElementById('sn-'+tid+'-'+idx)?.value||'';setLoading(btn,true);try{const d=await postFD('/admin/verify_slip',{task_id:tid,slip_idx:idx,action,note});if(d.status==='ok'){const actDiv=btn.closest('[style*="display:flex"]');const approved=action==='approve';if(actDiv)actDiv.innerHTML=approved?`<span class="badge badge-green">✅ อนุมัติ${note?' · '+note:''}</span>`:`<span class="badge badge-red">❌ ปฏิเสธ${note?' · '+note:''}</span>`;const tabs=[...document.querySelectorAll('.tab-btn')];const slipTab=tabs.find(b=>b.textContent.includes('สลิป')||b.textContent.includes('Slips'));if(slipTab){const badge=slipTab.querySelector('.sb-badge');if(badge){const n=(parseInt(badge.textContent)||0)-1;if(n<=0)badge.remove();else badge.textContent=n}}toast(approved?'✅ อนุมัติแล้ว':'❌ ปฏิเสธแล้ว',approved?'success':'info')}}catch(e){toast('Error','error')}setLoading(btn,false)}
 
 /* ── File viewer modal ── */
+async function openQuote(tid, suggested){
+  const amount=prompt('Quote amount (THB)', suggested||'');
+  if(amount===null||amount==='')return;
+  const deposit=prompt('Deposit percent', '50')||'50';
+  const note=prompt('Quote note', '')||'';
+  try{
+    const d=await postFD('/admin/quote',{task_id:tid,amount,deposit_percent:deposit,note});
+    if(d.status==='ok')toast('Quote sent');
+  }catch(e){toast('Quote failed','error')}
+}
+async function viewTimeline(tid){
+  try{
+    const d=await fetch('/admin/task_events/'+tid).then(r=>r.json());
+    const rows=(d.events||[]).map(e=>`<div style="padding:8px 0;border-bottom:1px solid var(--border2)"><div style="font-weight:700;color:var(--text);font-size:.84em">${e.action}</div><div style="font-size:.75em;color:var(--text3)">${(e.created_at||'').slice(0,16).replace('T',' ')} · ${e.actor||''}</div>${e.note?`<div style="font-size:.78em;color:var(--text2);margin-top:3px">${e.note}</div>`:''}</div>`).join('')||'<div style="color:var(--text3)">No events</div>';
+    const el=document.createElement('div');
+    el.innerHTML=`<div id="timelineModal" style="position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:999;display:flex;align-items:center;justify-content:center" onclick="if(event.target===this)this.remove()"><div class="card card-p" style="width:min(520px,92vw);max-height:80vh;overflow:auto"><div class="sec-title" style="margin-bottom:10px">Timeline</div>${rows}<button class="btn btn-ghost btn-sm" style="margin-top:12px;width:100%;justify-content:center" onclick="document.getElementById('timelineModal').remove()">Close</button></div></div>`;
+    document.body.appendChild(el.firstChild);
+  }catch(e){toast('Timeline failed','error')}
+}
+
 function viewFiles(tid, title) {
   fetch('/admin/task_files/' + tid)
     .then(r => r.json())

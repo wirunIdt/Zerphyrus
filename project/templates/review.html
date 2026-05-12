@@ -1,0 +1,20 @@
+{% extends "base.html" %}
+{% block title %}Review{% endblock %}
+{% block topbar_title %}Review Order{% endblock %}
+{% block content %}
+<div class="card card-p" style="max-width:560px;margin:0 auto">
+  {% if submitted %}
+  <div style="text-align:center;padding:24px;color:var(--green);font-weight:800">Thank you for your review.</div>
+  <a href="/gallery" class="btn btn-primary btn-sm" style="justify-content:center;width:100%">View Gallery</a>
+  {% else %}
+  <div class="sec-title" style="margin-bottom:12px">Review {{ task.sn or task.id[:8] }}</div>
+  <form method="post">
+    <div class="field"><label>Name</label><input name="name" class="input" value="{{ task.customer.name }}"></div>
+    <div class="field"><label>Rating</label><select name="rating" class="input"><option value="5">5 - Excellent</option><option value="4">4 - Good</option><option value="3">3 - OK</option><option value="2">2</option><option value="1">1</option></select></div>
+    <div class="field"><label>Comment</label><textarea name="comment" class="input" style="min-height:110px"></textarea></div>
+    <button class="btn btn-primary" style="width:100%;justify-content:center">Submit Review</button>
+  </form>
+  {% endif %}
+</div>
+{% endblock %}
+

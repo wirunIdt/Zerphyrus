@@ -1,0 +1,39 @@
+{% extends "base.html" %}
+{% block title %}Gallery{% endblock %}
+{% block topbar_title %}Gallery{% endblock %}
+{% block content %}
+<div style="display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:16px;flex-wrap:wrap">
+  <div>
+    <div style="font-size:1.1em;font-weight:800;color:var(--text)">Finished Work Gallery</div>
+    <div style="font-size:.82em;color:var(--text3)">Real completed jobs and customer feedback.</div>
+  </div>
+</div>
+{% if items %}
+<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:14px">
+  {% for item in items %}
+  <div class="card" style="overflow:hidden">
+    <img src="/uploads/{{ item.image }}" alt="{{ item.title }}" style="width:100%;aspect-ratio:4/3;object-fit:cover;display:block">
+    <div style="padding:12px 14px">
+      <div style="font-weight:800;color:var(--text);font-size:.9em">{{ item.title }}</div>
+      {% if item.description %}<div style="font-size:.78em;color:var(--text3);line-height:1.5;margin-top:4px">{{ item.description }}</div>{% endif %}
+    </div>
+  </div>
+  {% endfor %}
+</div>
+{% else %}
+<div class="card card-p" style="text-align:center;color:var(--text3)">No gallery items yet.</div>
+{% endif %}
+{% if reviews %}
+<div class="sec-title" style="margin:22px 0 10px">Customer Reviews</div>
+<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(240px,1fr));gap:10px">
+  {% for r in reviews[:6] if r.active %}
+  <div class="card card-p">
+    <div style="color:var(--amber);font-weight:800">{{ '★' * r.rating }}{{ '☆' * (5-r.rating) }}</div>
+    <div style="font-size:.84em;color:var(--text);margin-top:6px">{{ r.comment }}</div>
+    <div style="font-size:.72em;color:var(--text3);margin-top:8px">{{ r.name }}</div>
+  </div>
+  {% endfor %}
+</div>
+{% endif %}
+{% endblock %}
+

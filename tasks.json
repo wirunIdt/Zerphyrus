@@ -1,1 +1,19 @@
-[]
+[
+  {
+    "id": "1778598092153",
+    "sn": "ORD-202605-0001",
+    "customer": {
+      "name": "Jackson",
+      "phone": "0982879092",
+      "email": "hafasdlkfj@gmail.com"
+    },
+    "title": "das",
+    "description": "dasdasdasd",
+    "priority": "medium",
+    "deadline": "2026-05-23",
+    "status": "pending",
+    "createdBy": "ลูกค้า",
+    "createdAt": "2026-05-12T22:01:32.158303",
+    "updatedAt": "2026-05-12T22:01:32.158303"
+  }
+]
