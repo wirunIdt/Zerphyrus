@@ -71,10 +71,12 @@ PRODUCT_IMG_FOLDER = os.path.join(UPLOAD_FOLDER, 'products')
 ALLOWED_IMG      = {'png', 'jpg', 'jpeg', 'gif', 'webp'}
 MODEL_3D_FOLDER  = os.path.join(UPLOAD_FOLDER, '3d_models')
 GALLERY_FOLDER   = os.path.join(UPLOAD_FOLDER, 'gallery')
+CUSTOM_ORDER_FOLDER = os.path.join(UPLOAD_FOLDER, 'custom_orders')
 BACKUP_FOLDER    = os.path.join(PROJECT_DIR, 'backups')
 ALLOWED_3D       = {'stl', 'obj', 'step', 'stp', '3mf', 'iges', 'igs', 'f3d', 'blend', 'fbx', 'zip'}
+ALLOWED_ORDER_FILES = ALLOWED_IMG | {'pdf', 'ai', 'psd', 'svg', 'zip', 'doc', 'docx', 'xls', 'xlsx'}
 
-for d in [UPLOAD_FOLDER, QR_FOLDER, SLIP_FOLDER, PRODUCT_IMG_FOLDER, MODEL_3D_FOLDER, GALLERY_FOLDER, BACKUP_FOLDER]:
+for d in [UPLOAD_FOLDER, QR_FOLDER, SLIP_FOLDER, PRODUCT_IMG_FOLDER, MODEL_3D_FOLDER, GALLERY_FOLDER, CUSTOM_ORDER_FOLDER, BACKUP_FOLDER]:
     os.makedirs(d, exist_ok=True)
 
 PROMPTPAY_PHONE  = os.environ.get('PROMPTPAY_PHONE', '0812345678')
@@ -291,7 +293,7 @@ def send_email_notification(task, subject, body):
                 smtp.starttls()
             user = os.environ.get('SMTP_USER', '')
             if user:
-                smtp.login(user, os.environ.get('SMTP_PASSWORD', ''))
+                smtp.login(user, os.environ.get('SMTP_PASSWORD') or os.environ.get('SMTP_PASS', ''))
             smtp.send_message(msg)
         log_notification(task['id'], 'email', target, 'sent', subject)
     except Exception as e:
@@ -348,31 +350,134 @@ def notify_status_change(task, old_status, new_status):
     send_email_notification(task, subject, body)
     send_sms_notification(task, body)
 
+def _num(value, default=0.0):
+    try:
+        return float(value)
+    except (TypeError, ValueError):
+        return default
+
+def _int(value, default=0):
+    try:
+        return int(float(value))
+    except (TypeError, ValueError):
+        return default
+
+def _deadline_days(deadline):
+    try:
+        if not deadline:
+            return None
+        return (date.fromisoformat(deadline) - date.today()).days
+    except Exception:
+        return None
+
 def calculate_3d_price(specs, overrides=None):
     overrides = overrides or {}
-    rates = {'PLA': 3.0, 'ABS': 3.6, 'PETG': 3.8, 'TPU': 5.5, 'Resin': 7.0, 'Nylon': 6.5, 'ASA': 5.0, 'CF-PLA': 6.0}
+    material = specs.get('material') or 'PLA'
+    material_cfg = {
+        'PLA': {'gram': 3.0, 'density': 1.24}, 'ABS': {'gram': 3.6, 'density': 1.04},
+        'PETG': {'gram': 3.8, 'density': 1.27}, 'TPU': {'gram': 5.5, 'density': 1.21},
+        'Resin': {'gram': 7.0, 'density': 1.12}, 'Nylon': {'gram': 6.5, 'density': 1.15},
+        'ASA': {'gram': 5.0, 'density': 1.07}, 'CF-PLA': {'gram': 6.0, 'density': 1.30},
+    }
     quality = {'draft': .85, 'standard': 1.0, 'fine': 1.35, 'ultra': 1.8}
     finish = {'as_printed': 0, 'sanded': 80, 'polished': 140, 'painted': 220}
-    support = {'none': 0, 'auto': 40, 'minimal': 60, 'full': 120}
-    qty = max(1, int(float(specs.get('quantity') or 1)))
-    sx = float(specs.get('size_x') or 0)
-    sy = float(specs.get('size_y') or 0)
-    sz = float(specs.get('size_z') or 0)
+    support = {'none': {'fee': 0, 'waste': 0}, 'auto': {'fee': 40, 'waste': .12},
+               'minimal': {'fee': 60, 'waste': .18}, 'full': {'fee': 120, 'waste': .35}}
+    qty = max(1, _int(specs.get('quantity'), 1))
+    sx = _num(specs.get('size_x'))
+    sy = _num(specs.get('size_y'))
+    sz = _num(specs.get('size_z'))
     volume_cm3 = float(specs.get('volume_cm3') or 0) or max(0, sx * sy * sz / 1000)
-    infill = max(5, min(100, float(specs.get('infill') or 20))) / 100
-    material = specs.get('material') or 'PLA'
-    base = volume_cm3 * rates.get(material, 3.0) * (0.45 + infill) * quality.get(specs.get('quality'), 1.0) * qty
-    fees = finish.get(specs.get('finish'), 0) + support.get(specs.get('support'), 40)
+    infill = max(5, min(100, _num(specs.get('infill'), 20))) / 100
+    cfg = material_cfg.get(material, material_cfg['PLA'])
+    support_cfg = support.get(specs.get('support'), support['auto'])
+    billable_volume = volume_cm3 * (0.28 + infill) * (1 + support_cfg['waste'])
+    material_weight_g = billable_volume * cfg['density'] * qty
+    material_cost = material_weight_g * cfg['gram']
+    machine_hours = max(.4, (volume_cm3 * qty / 22) * quality.get(specs.get('quality'), 1.0))
+    machine_cost = machine_hours * _num(overrides.get('machine_hour_rate'), 45)
+    fees = finish.get(specs.get('finish'), 0) + support_cfg['fee']
+    rush_multiplier = 1.0
+    days_left = _deadline_days(specs.get('deadline'))
+    if days_left is not None and days_left <= 3:
+        rush_multiplier = 1.35
+    elif days_left is not None and days_left <= 7:
+        rush_multiplier = 1.15
     minimum = float(overrides.get('minimum') or 150)
     discount = float(overrides.get('discount') or 0)
-    amount = max(minimum, base + fees - discount)
+    subtotal = (material_cost + machine_cost + fees) * rush_multiplier
+    amount = max(minimum, subtotal - discount)
     deposit_percent = float(overrides.get('deposit_percent') or 50)
+    gaps = []
+    if not volume_cm3:
+        gaps.append('ไม่มี volume จาก STL หรือขนาดชิ้นงาน')
+    if not specs.get('material'):
+        gaps.append('ยังไม่ได้เลือกวัสดุ')
+    if not specs.get('quantity'):
+        gaps.append('ยังไม่ได้ระบุจำนวน')
+    confidence = 'high' if volume_cm3 and specs.get('material') else ('medium' if sx and sy and sz else 'low')
     return {
-        'volume_cm3': round(volume_cm3, 2), 'material_rate': rates.get(material, 3.0),
-        'subtotal': round(base + fees, 2), 'discount': round(discount, 2),
+        'volume_cm3': round(volume_cm3, 2), 'material_rate': cfg['gram'],
+        'material_weight_g': round(material_weight_g, 1),
+        'machine_hours': round(machine_hours, 2),
+        'material_cost': round(material_cost, 2),
+        'machine_cost': round(machine_cost, 2),
+        'finish_support_fee': round(fees, 2),
+        'rush_multiplier': rush_multiplier,
+        'subtotal': round(subtotal, 2), 'discount': round(discount, 2),
         'amount': round(amount, 2), 'deposit_percent': deposit_percent,
         'deposit_amount': round(amount * deposit_percent / 100, 2),
         'balance_amount': round(amount - (amount * deposit_percent / 100), 2),
+        'confidence': confidence, 'pricing_gaps': gaps,
+    }
+
+def calculate_custom_order_price(specs, overrides=None):
+    overrides = overrides or {}
+    service = specs.get('service_type') or 'custom'
+    qty = max(1, _int(specs.get('quantity'), 1))
+    base_rates = {
+        'design': 450, 'laser': 180, 'cnc': 650, 'print': 120,
+        'assembly': 300, 'repair': 250, 'custom': 300,
+    }
+    complexity_mult = {'simple': 1.0, 'standard': 1.35, 'complex': 1.9}
+    finish_fee = {'none': 0, 'basic': 80, 'premium': 220}
+    service_rate = _num(overrides.get('service_rate'), base_rates.get(service, 300))
+    complexity = specs.get('complexity') or 'standard'
+    width = _num(specs.get('width_mm'))
+    height = _num(specs.get('height_mm'))
+    depth = _num(specs.get('depth_mm'))
+    area_cm2 = max(0, width * height / 100)
+    volume_cm3 = max(0, width * height * depth / 1000)
+    size_factor = max(1, (area_cm2 / 120) or (volume_cm3 / 80) or 1)
+    labor_hours = max(_num(specs.get('labor_hours'), 0), size_factor * complexity_mult.get(complexity, 1.35))
+    rush_multiplier = 1.0
+    days_left = _deadline_days(specs.get('deadline'))
+    if days_left is not None and days_left <= 3:
+        rush_multiplier = 1.35
+    elif days_left is not None and days_left <= 7:
+        rush_multiplier = 1.15
+    subtotal = (service_rate * labor_hours + finish_fee.get(specs.get('finish_level'), 80)) * qty * rush_multiplier
+    minimum = _num(overrides.get('minimum'), 250)
+    discount = _num(overrides.get('discount'), 0)
+    amount = max(minimum, subtotal - discount)
+    deposit_percent = _num(overrides.get('deposit_percent'), 50)
+    gaps = []
+    if not specs.get('service_type'):
+        gaps.append('ยังไม่ได้เลือกประเภทงาน')
+    if not specs.get('width_mm') and not specs.get('height_mm') and not specs.get('depth_mm'):
+        gaps.append('ไม่มีขนาดสำหรับประเมินต้นทุน')
+    if not specs.get('reference_files'):
+        gaps.append('ไม่มีไฟล์อ้างอิง')
+    return {
+        'service_rate': round(service_rate, 2), 'labor_hours': round(labor_hours, 2),
+        'area_cm2': round(area_cm2, 2), 'volume_cm3': round(volume_cm3, 2),
+        'rush_multiplier': rush_multiplier, 'subtotal': round(subtotal, 2),
+        'discount': round(discount, 2), 'amount': round(amount, 2),
+        'deposit_percent': deposit_percent,
+        'deposit_amount': round(amount * deposit_percent / 100, 2),
+        'balance_amount': round(amount - (amount * deposit_percent / 100), 2),
+        'confidence': 'medium' if not gaps else 'low',
+        'pricing_gaps': gaps,
     }
 
 def stl_volume_cm3(path):
@@ -495,6 +600,29 @@ def revenue_analytics(slips):
         'target': target,
     }
 
+def crm_summary(tasks):
+    customers = read_customers()
+    rows = {}
+    for phone, c in customers.items():
+        rows[phone] = {
+            'phone': phone, 'name': c.get('name',''), 'email': c.get('email',''),
+            'tags': c.get('tags', []), 'note': c.get('note',''),
+            'order_count': 0, 'total_spend': 0.0, 'last_order': '',
+        }
+    for t in tasks:
+        c = t.get('customer', {})
+        phone = c.get('phone') or 'unknown'
+        row = rows.setdefault(phone, {
+            'phone': phone, 'name': c.get('name',''), 'email': c.get('email',''),
+            'tags': [], 'note': '', 'order_count': 0, 'total_spend': 0.0, 'last_order': '',
+        })
+        row['name'] = row['name'] or c.get('name','')
+        row['email'] = row['email'] or c.get('email','')
+        row['order_count'] += 1
+        row['total_spend'] += _num(t.get('quote', {}).get('amount') or t.get('order_total'))
+        row['last_order'] = max(row['last_order'], t.get('createdAt',''))
+    return sorted(rows.values(), key=lambda r: (r['total_spend'], r['order_count'], r['last_order']), reverse=True)
+
 def invoice_for_task(task):
     invoices = read_invoices()
     items = invoices.setdefault('items', {})
@@ -612,6 +740,7 @@ def admin_context(tasks_override=None):
         status_flow=STATUS_FLOW, status_labels=STATUS_LABELS,
         events=read_events(), notifications=read_notifications()[:20],
         gallery=read_gallery(), reviews=read_reviews(), coupons=read_coupons(),
+        crm_customers=crm_summary(all_tasks),
     )
 
 def admin_required(f):
@@ -631,17 +760,67 @@ def index():
 
 @app.route('/submit_order', methods=['POST'])
 def submit_order():
+    saved_files = []
+    for f in request.files.getlist('reference_files'):
+        if f and f.filename:
+            ext = f.filename.rsplit('.', 1)[-1].lower()
+            if ext in ALLOWED_ORDER_FILES:
+                fname = f"{int(datetime.now().timestamp()*1000)}_{uuid.uuid4().hex[:6]}.{ext}"
+                f.save(os.path.join(CUSTOM_ORDER_FOLDER, fname))
+                saved_files.append({'filename': fname, 'original': f.filename, 'ext': ext, 'field': 'reference_files'})
+
+    specs_custom = {
+        'service_type': request.form.get('service_type', 'custom'),
+        'complexity': request.form.get('complexity', 'standard'),
+        'quantity': request.form.get('quantity', '1'),
+        'width_mm': request.form.get('width_mm', ''),
+        'height_mm': request.form.get('height_mm', ''),
+        'depth_mm': request.form.get('depth_mm', ''),
+        'material': request.form.get('material', ''),
+        'finish_level': request.form.get('finish_level', 'basic'),
+        'budget': request.form.get('budget', ''),
+        'delivery_method': request.form.get('delivery_method', 'pickup'),
+        'deadline': request.form.get('deadline',''),
+        'reference_files': saved_files,
+    }
+    spec_lines = [
+        f"ประเภทงาน: {specs_custom['service_type']} | ความซับซ้อน: {specs_custom['complexity']}",
+        f"จำนวน: {specs_custom['quantity']} | ผิวงาน: {specs_custom['finish_level']}",
+    ]
+    if specs_custom['width_mm'] or specs_custom['height_mm'] or specs_custom['depth_mm']:
+        spec_lines.append(f"ขนาด: {specs_custom['width_mm']}x{specs_custom['height_mm']}x{specs_custom['depth_mm']} mm")
+    if specs_custom['material']:
+        spec_lines.append(f"วัสดุ/รายละเอียดวัสดุ: {specs_custom['material']}")
+    if specs_custom['budget']:
+        spec_lines.append(f"งบประมาณ: {specs_custom['budget']}")
+    if specs_custom['delivery_method']:
+        spec_lines.append(f"รับงาน: {specs_custom['delivery_method']}")
+    extra_desc = request.form.get('task_description','').strip()
+    if extra_desc:
+        spec_lines.extend(['', extra_desc])
+    if saved_files:
+        spec_lines.append('')
+        spec_lines.extend([f"ไฟล์อ้างอิง: {sf['original']}" for sf in saved_files])
+
     tasks = read_tasks()
     task = {
         'id': str(int(datetime.now().timestamp() * 1000)), 'sn': next_sn(),
         'customer': {'name': request.form.get('customer_name',''), 'phone': request.form.get('customer_phone',''), 'email': request.form.get('customer_email','')},
-        'title': request.form.get('task_title',''), 'description': request.form.get('task_description',''),
+        'title': request.form.get('task_title',''), 'description': "\n".join(spec_lines),
         'priority': request.form.get('priority','medium'), 'deadline': request.form.get('deadline',''),
         'status': 'pending', 'createdBy': 'ลูกค้า',
+        'specs_custom': specs_custom,
         'createdAt': datetime.now().isoformat(), 'updatedAt': datetime.now().isoformat(),
+    }
+    task['quote'] = {
+        'status': 'needed',
+        'auto_pricing': calculate_custom_order_price(specs_custom),
+        'created_at': _now(),
     }
     tasks.insert(0, task); write_tasks(tasks); code = create_ticket(task)
     add_event(task['id'], 'order_created', 'Order submitted', actor=task['customer']['name'])
+    add_event(task['id'], 'quote_needed', 'Waiting for admin quote')
+    send_line_admin_notification(task, f"New custom order needs quote: {task.get('sn','')} {task.get('title','')}")
     return render_template('order_form.html', success=True, ticket_code=code,
                            customer_name=task['customer']['name'], task_id=task['id'],
                            order_sn=task.get('sn',''), active_page='order')
@@ -680,6 +859,7 @@ def model_submit():
         'scale':    request.form.get('scale', '100'),
         'use_case': request.form.get('use_case', ''),
         'budget':   request.form.get('budget', ''),
+        'deadline': request.form.get('deadline', ''),
         'files':    saved_files,
     }
     for sf in saved_files:
@@ -1016,11 +1196,15 @@ def admin_quote():
     task_id = request.form.get('task_id','')
     tasks = read_tasks(); task = find_task(tasks, task_id)
     if not task: return jsonify({'status':'error','error':'not found'}), 404
-    auto = calculate_3d_price(task.get('specs_3d', {}), {
+    overrides = {
         'discount': request.form.get('discount', 0) or 0,
         'deposit_percent': request.form.get('deposit_percent', 50) or 50,
         'minimum': request.form.get('minimum', 150) or 150,
-    })
+    }
+    if task.get('specs_3d'):
+        auto = calculate_3d_price(task.get('specs_3d', {}), overrides)
+    else:
+        auto = calculate_custom_order_price(task.get('specs_custom', {}), overrides)
     amount = float(request.form.get('amount') or auto['amount'])
     deposit_percent = float(request.form.get('deposit_percent') or auto['deposit_percent'])
     deposit_amount = round(amount * deposit_percent / 100, 2)
@@ -1578,15 +1762,17 @@ def admin_task_files(task_id):
     tasks = read_tasks()
     task  = next((t for t in tasks if t['id'] == task_id), None)
     if not task: return jsonify({'error': 'not found'}), 404
-    files = task.get('specs_3d', {}).get('files', [])
+    files = task.get('specs_3d', {}).get('files', []) or task.get('specs_custom', {}).get('reference_files', [])
+    folder = MODEL_3D_FOLDER if task.get('specs_3d') else CUSTOM_ORDER_FOLDER
+    url_part = '3d_models' if task.get('specs_3d') else 'custom_orders'
     # Build URLs
     file_list = []
     for sf in files:
         fname = sf.get('filename', '')
-        path  = os.path.join(MODEL_3D_FOLDER, fname)
+        path  = os.path.join(folder, fname)
         file_list.append({
             **sf,
-            'url':    f'/uploads/3d_models/{fname}',
+            'url':    f'/uploads/{url_part}/{fname}',
             'exists': os.path.exists(path),
             'size':   os.path.getsize(path) if os.path.exists(path) else 0,
         })

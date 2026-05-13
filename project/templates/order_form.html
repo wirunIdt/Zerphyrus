@@ -24,7 +24,7 @@
       <div style="font-size:1em;font-weight:700;color:var(--text)" data-th="📋 ข้อมูลการสั่งงาน" data-en="📋 Order Details">📋 ข้อมูลการสั่งงาน</div>
       <div style="font-size:.76em;color:var(--text3);margin-top:2px" data-th="กรอกข้อมูลให้ครบถ้วน" data-en="Fill in all required fields">กรอกข้อมูลให้ครบถ้วน</div>
     </div>
-    <form method="post" action="/submit_order">
+    <form method="post" action="/submit_order" enctype="multipart/form-data">
       <div style="font-size:.68em;font-weight:700;color:var(--accent);text-transform:uppercase;letter-spacing:1px;margin-bottom:10px" data-th="👤 ข้อมูลลูกค้า" data-en="👤 CUSTOMER INFO">👤 ข้อมูลลูกค้า</div>
       <div class="field-row">
         <div class="field"><label data-th="ชื่อ-นามสกุล *" data-en="Full Name *">ชื่อ-นามสกุล *</label><input name="customer_name" required class="input" placeholder="สมชาย ใจดี" data-ph-th="สมชาย ใจดี" data-ph-en="John Doe"></div>
@@ -34,6 +34,72 @@
       <hr class="div" style="margin:14px 0 16px">
       <div style="font-size:.68em;font-weight:700;color:var(--accent);text-transform:uppercase;letter-spacing:1px;margin-bottom:10px" data-th="📦 รายละเอียดงาน" data-en="📦 JOB DETAILS">📦 รายละเอียดงาน</div>
       <div class="field"><label data-th="ชื่อรายการงาน *" data-en="Job Title *">ชื่อรายการงาน *</label><input name="task_title" required class="input" placeholder="เช่น ออกแบบโลโก้..." data-ph-th="เช่น ออกแบบโลโก้..." data-ph-en="e.g. Logo Design..."></div>
+      <div class="field-row">
+        <div class="field">
+          <label data-th="ประเภทงาน *" data-en="Service Type *">ประเภทงาน *</label>
+          <select name="service_type" class="input">
+            <option value="custom">งานสั่งทำทั่วไป</option>
+            <option value="design">ออกแบบ / เขียนแบบ</option>
+            <option value="print">พิมพ์งาน / สติกเกอร์ / เอกสาร</option>
+            <option value="laser">เลเซอร์คัท / แกะสลัก</option>
+            <option value="cnc">CNC / ตัดขึ้นรูป</option>
+            <option value="assembly">ประกอบ / post-process</option>
+            <option value="repair">แก้ไข / ซ่อม / ดัดแปลง</option>
+          </select>
+        </div>
+        <div class="field">
+          <label data-th="ความซับซ้อน" data-en="Complexity">ความซับซ้อน</label>
+          <select name="complexity" class="input">
+            <option value="simple">ง่าย</option>
+            <option value="standard" selected>มาตรฐาน</option>
+            <option value="complex">ซับซ้อน / ต้องวัดหน้างาน</option>
+          </select>
+        </div>
+      </div>
+      <div class="field-row">
+        <div class="field"><label data-th="จำนวน" data-en="Quantity">จำนวน</label><input name="quantity" type="number" min="1" value="1" class="input"></div>
+        <div class="field">
+          <label data-th="งบประมาณโดยประมาณ" data-en="Budget">งบประมาณโดยประมาณ</label>
+          <select name="budget" class="input">
+            <option value="">ไม่ระบุ</option>
+            <option value="under_500">ต่ำกว่า ฿500</option>
+            <option value="500_1000">฿500 - ฿1,000</option>
+            <option value="1000_3000">฿1,000 - ฿3,000</option>
+            <option value="3000_plus">มากกว่า ฿3,000</option>
+            <option value="quote">ขอใบเสนอราคา</option>
+          </select>
+        </div>
+      </div>
+      <div class="field-row">
+        <div class="field"><label>กว้าง (mm)</label><input name="width_mm" type="number" step="0.1" class="input" placeholder="เช่น 120"></div>
+        <div class="field"><label>สูง (mm)</label><input name="height_mm" type="number" step="0.1" class="input" placeholder="เช่น 80"></div>
+      </div>
+      <div class="field-row">
+        <div class="field"><label>ลึก/หนา (mm)</label><input name="depth_mm" type="number" step="0.1" class="input" placeholder="เช่น 20"></div>
+        <div class="field">
+          <label data-th="ผิวงาน" data-en="Finish">ผิวงาน</label>
+          <select name="finish_level" class="input">
+            <option value="none">ไม่ต้องเก็บผิว</option>
+            <option value="basic" selected>เก็บผิวพื้นฐาน</option>
+            <option value="premium">พรีเมียม / พร้อมส่งลูกค้า</option>
+          </select>
+        </div>
+      </div>
+      <div class="field-row">
+        <div class="field"><label data-th="วัสดุ / สี / ข้อกำหนด" data-en="Material / Color / Specs">วัสดุ / สี / ข้อกำหนด</label><input name="material" class="input" placeholder="เช่น อะคริลิกใส 3mm, สีดำด้าน"></div>
+        <div class="field">
+          <label data-th="วิธีรับงาน" data-en="Delivery">วิธีรับงาน</label>
+          <select name="delivery_method" class="input">
+            <option value="pickup">รับเองที่ร้าน</option>
+            <option value="delivery">จัดส่ง</option>
+            <option value="install">ติดตั้ง / ส่งมอบหน้างาน</option>
+          </select>
+        </div>
+      </div>
+      <div class="field">
+        <label data-th="ไฟล์อ้างอิง / แบบ / รูปตัวอย่าง" data-en="Reference Files">ไฟล์อ้างอิง / แบบ / รูปตัวอย่าง</label>
+        <input name="reference_files" type="file" multiple class="input" accept=".jpg,.jpeg,.png,.gif,.webp,.pdf,.ai,.psd,.svg,.zip,.doc,.docx,.xls,.xlsx">
+      </div>
       <div class="field"><label data-th="รายละเอียดเพิ่มเติม" data-en="Additional Details">รายละเอียดเพิ่มเติม</label><textarea name="task_description" class="input" style="min-height:80px" placeholder="รายละเอียดงาน..." data-ph-th="รายละเอียดงาน..." data-ph-en="Details..."></textarea></div>
       <div class="field-row">
         <div class="field"><label data-th="วันที่กำหนดส่ง" data-en="Deadline">วันที่กำหนดส่ง</label><input name="deadline" id="ddl" type="date" class="input"><div class="dl-hint">⏰ <span data-th="เร็วสุด +9 วันจากวันนี้" data-en="Min +9 days">เร็วสุด +9 วันจากวันนี้</span></div></div>

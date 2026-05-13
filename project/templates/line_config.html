@@ -21,7 +21,7 @@
           <input type="file" id="qrInput" name="qr" accept="image/*" style="display:none" onchange="doUploadQR(this)">
           <div style="display:flex;gap:8px;flex-wrap:wrap">
             <button type="button" id="qrUploadBtn" class="btn btn-primary btn-sm" onclick="document.getElementById('qrInput').click()">📁 เลือก & อัปโหลด QR</button>
-            {% if qr_image %}<button type="submit" formmethod="post" formaction="/admin/delete_qr" class="btn btn-ghost btn-sm" style="color:var(--red)" onclick="return confirm('ลบ QR Code?')">🗑 ลบ QR</button>{% endif %}
+            {% if qr_image %}<button type="submit" formmethod="post" formaction="/admin/delete_qr" class="btn btn-ghost btn-sm" style="color:var(--red)" onclick="return confirm('ź QR Code?')">🗑 ź QR</button>{% endif %}
           </div>
         </form>
       </div>

@@ -25,7 +25,7 @@
             {% if at_max %}<div style="font-size:.65em;color:var(--amber);margin-top:3px;text-align:center" data-th="สูงสุด {{stock}}" data-en="Max {{stock}}">สูงสุด {{ stock }}</div>{% endif %}
           </td>
           <td style="font-weight:700;color:var(--text);font-family:var(--fm);white-space:nowrap">฿{{ "%.0f"|format(item.subtotal) }}</td>
-          <td><form action="/cart/remove" method="post"><input type="hidden" name="product_id" value="{{ item.product_id }}"><button type="submit" class="btn btn-ghost btn-xs" style="color:var(--red)" title="ลบ">🗑</button></form></td>
+          <td><form action="/cart/remove" method="post"><input type="hidden" name="product_id" value="{{ item.product_id }}"><button type="submit" class="btn btn-ghost btn-xs" style="color:var(--red)" title="ź">🗑</button></form></td>
         </tr>
         {% endfor %}
         </tbody>

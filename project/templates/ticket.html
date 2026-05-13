@@ -52,7 +52,7 @@
         <td style="padding:8px 0;font-family:var(--fm);font-weight:600;color:var(--accent)">{{ task.sn or task.id[:8] }}</td>
       </tr>
       <tr style="border-bottom:1px solid var(--border2)">
-        <td style="padding:8px 0;color:var(--text3)" data-th="สถานะงาน" data-en="Status">สถานะงาน</td>
+        <td style="padding:8px 0;color:var(--text3)" data-th="ʶҹЧҹ" data-en="Status">ʶҹЧҹ</td>
         <td style="padding:8px 0">
           <span class="badge badge-{% if task.status=='pending'%}amber{%elif task.status=='inprogress'%}blue{%elif task.status=='completed'%}green{%else%}red{%endif%}">
             {%if task.status=='pending'%}⏳ รอ{%elif task.status=='inprogress'%}⚙️ กำลังทำ{%elif task.status=='completed'%}✅ เสร็จ{%else%}❌ ยกเลิก{%endif%}

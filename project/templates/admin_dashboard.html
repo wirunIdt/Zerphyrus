@@ -14,6 +14,7 @@
 .fp:hover{border-color:var(--accent);color:var(--accent)}.fp.on{background:var(--accent);color:#fff;border-color:var(--accent)}
 .task-item{padding:14px 18px;border-bottom:1px solid var(--border2);display:flex;align-items:flex-start;gap:10px;transition:background .15s}
 .task-item:last-child{border-bottom:none}.task-item:hover{background:var(--surface2)}
+.task-check{width:16px;height:16px;margin-top:12px;accent-color:var(--accent);flex-shrink:0}
 .t-prio{width:3px;border-radius:2px;align-self:stretch;flex-shrink:0;min-height:40px}.t-body{flex:1;min-width:0}
 .t-sn{font-family:var(--fm);font-size:.65em;font-weight:600;color:var(--accent);background:var(--accent-lt);padding:2px 8px;border-radius:var(--r-pill);display:inline-block;margin-bottom:3px}
 .t-title{font-size:.87em;font-weight:700;color:var(--text)}.t-meta{font-size:.74em;color:var(--text3);margin-top:2px}
@@ -105,6 +106,7 @@
   <button class="tab-btn" onclick="switchTab(this,'queue')" data-th="📬 คิว" data-en="📬 Queue">📬 คิว</button>
   <button class="tab-btn" onclick="switchTab(this,'cal_todo')" data-th="📅 ปฏิทิน & Todo" data-en="📅 Calendar & Todo">📅 ปฏิทิน & Todo</button>
   <button class="tab-btn" onclick="switchTab(this,'slips')">💸 <span data-th="สลิป" data-en="Slips">สลิป</span>{% if pending_slips>0 %}<span class="sb-badge">{{ pending_slips }}</span>{% endif %}</button>
+  <button class="tab-btn" onclick="switchTab(this,'crm')">👥 CRM</button>
 </div>
 
 <!-- TAB 1: TASKS -->
@@ -116,11 +118,19 @@
       <a href="/admin/filter/inprogress" class="fp {% if current_filter=='inprogress' %}on{% endif %}" data-th="⚙️ ทำอยู่" data-en="⚙️ In Progress">⚙️ ทำอยู่</a>
       <a href="/admin/filter/completed" class="fp {% if current_filter=='completed' %}on{% endif %}" data-th="✅ เสร็จ" data-en="✅ Done">✅ เสร็จ</a>
     </div>
-    <a href="/admin/export_excel" class="btn btn-secondary btn-sm" data-th="📑 Excel" data-en="📑 Excel">📑 Excel</a>
+    <div style="display:flex;gap:6px;flex-wrap:wrap;align-items:center">
+      <select id="bulk-status" class="status-sel">
+        <option value="">Bulk status</option>
+        {% for st in status_flow %}<option value="{{ st }}">{{ status_labels.get(st, st) }}</option>{% endfor %}
+      </select>
+      <button class="btn btn-ghost btn-sm" onclick="bulkStatus()">Apply</button>
+      <a href="/admin/export_excel" class="btn btn-secondary btn-sm" data-th="📑 Excel" data-en="📑 Excel">📑 Excel</a>
+    </div>
   </div>
   <div class="card" style="overflow:hidden">
     {% if tasks %}{% for t in tasks %}
     <div class="task-item" id="task-{{ t.id }}">
+      <input type="checkbox" class="task-check" value="{{ t.id }}">
       <div class="t-prio" style="background:{%if t.priority=='high'%}var(--red){%elif t.priority=='medium'%}var(--amber){%else%}var(--green){%endif%}"></div>
       <div class="t-body">
         <div style="display:flex;align-items:center;gap:7px;flex-wrap:wrap;margin-bottom:2px">
@@ -133,6 +143,7 @@
         {%if t.description%}<div class="t-desc">{{ t.description }}</div>{%endif%}
         <div class="t-footer">
           <button class="btn btn-ghost btn-xs" style="color:#0ea5e9" onclick="openQuote('{{ t.id }}', {{ (t.quote.auto_pricing.amount if t.quote and t.quote.auto_pricing else (t.quote.amount if t.quote else 0))|default(0)|tojson }})">Quote</button>
+          <button class="btn btn-ghost btn-xs" onclick="openCustomer('{{ t.customer.phone|e }}')">Customer</button>
           <button class="btn btn-ghost btn-xs" onclick="viewTimeline('{{ t.id }}')">Timeline</button>
           <a href="/admin/job_sheet/{{ t.id }}" target="_blank" class="btn btn-ghost btn-xs">Job</a>
           <select class="status-sel" onchange="changeStatus('{{ t.id }}',this)">
@@ -143,6 +154,7 @@
             {% for st in ['quoted','approved','printing','postprocessing','qc','ready','delivered'] %}<option value="{{ st }}" {%if t.status==st%}selected{%endif%}>{{ status_labels.get(st, st) }}</option>{% endfor %}
           </select>
           <a href="/admin/order_pdf/{{ t.id }}?qr=1" class="btn btn-ghost btn-xs">📄 PDF</a>
+          <a href="/admin/invoice/{{ t.id }}" class="btn btn-ghost btn-xs">Invoice</a>
           {% if t.specs_3d %}<a href="/admin/spec_sheet/{{ t.id }}" target="_blank" class="btn btn-ghost btn-xs" style="color:#8b5cf6">📋 Spec</a>{% endif %}
           {% if t.specs_3d and t.specs_3d.files %}<button class="btn btn-ghost btn-xs" style="color:#0ea5e9" onclick="viewFiles('{{ t.id }}','{{ t.title|e }}')">📁 ไฟล์ ({{ t.specs_3d.files|length }})</button>{% endif %}
           <a href="/payment/{{ t.id }}" class="btn btn-ghost btn-xs" style="color:var(--green)">💳 ชำระ</a>
@@ -171,7 +183,7 @@
   </div>
   <div class="chart-grid">
     <div class="card chart-box"><div class="chart-title" data-th="📈 ออเดอร์ 14 วัน" data-en="📈 14-Day Orders">📈 ออเดอร์ 14 วัน</div><canvas id="cDays" style="max-height:200px"></canvas></div>
-    <div class="card chart-box"><div class="chart-title" data-th="🥧 สถานะงาน" data-en="🥧 Status">🥧 สถานะงาน</div><canvas id="cStatus" style="max-height:200px"></canvas></div>
+    <div class="card chart-box"><div class="chart-title" data-th="🥧 ʶҹЧҹ" data-en="🥧 Status">🥧 ʶҹЧҹ</div><canvas id="cStatus" style="max-height:200px"></canvas></div>
     <div class="card chart-box"><div class="chart-title" data-th="📊 Priority" data-en="📊 Priority">📊 Priority</div><canvas id="cPrio" style="max-height:200px"></canvas></div>
   </div>
 </div>
@@ -373,6 +385,29 @@
     {% if not ns.found %}<div style="text-align:center;padding:50px;color:var(--text3)"><div style="font-size:3em;opacity:.2;margin-bottom:12px">💸</div><p data-th="ยังไม่มีสลิป" data-en="No slips yet">ยังไม่มีสลิป</p></div>{% endif %}
   </div>
 </div>
+
+<!-- TAB 8: CRM -->
+<div id="pane-crm" class="tab-pane">
+  <div class="card" style="overflow:hidden">
+    {% if crm_customers %}
+    {% for c in crm_customers %}
+    <div style="padding:13px 18px;border-bottom:1px solid var(--border2);display:flex;gap:10px;align-items:center;flex-wrap:wrap">
+      <div style="flex:1;min-width:220px">
+        <div style="font-weight:800;color:var(--text)">{{ c.name or 'ไม่ระบุชื่อ' }}</div>
+        <div style="font-size:.75em;color:var(--text3)">📞 {{ c.phone }}{% if c.email %} · ✉️ {{ c.email }}{% endif %}</div>
+        {% if c.tags %}<div style="display:flex;gap:4px;flex-wrap:wrap;margin-top:5px">{% for tag in c.tags %}<span class="badge badge-accent">{{ tag }}</span>{% endfor %}</div>{% endif %}
+        {% if c.note %}<div style="font-size:.74em;color:var(--text2);margin-top:4px">{{ c.note }}</div>{% endif %}
+      </div>
+      <div style="min-width:90px"><div class="stat-label">Orders</div><div style="font-weight:800">{{ c.order_count }}</div></div>
+      <div style="min-width:110px"><div class="stat-label">Spend</div><div style="font-weight:800;color:var(--green)">฿{{ '%.0f'|format(c.total_spend) }}</div></div>
+      <button class="btn btn-ghost btn-xs" onclick="openCustomer('{{ c.phone|e }}')">Open</button>
+    </div>
+    {% endfor %}
+    {% else %}
+    <div style="text-align:center;padding:44px;color:var(--text3)">No customer history yet</div>
+    {% endif %}
+  </div>
+</div>
 {% endblock %}
 {% block extra_scripts %}
 <script>
@@ -389,11 +424,11 @@ function buildCal(){const lang=localStorage.getItem('lang')||'th';const months=l
 function navCal(dir){calDate.setMonth(calDate.getMonth()+dir);buildCal()}
 function showDayTasks(iso,d,month){document.getElementById('dayTasksTitle').textContent=`${d} ${month}`;const list=document.getElementById('dayTasksList');const tasks=TASK_DATES[iso];if(tasks&&tasks.length){list.innerHTML=tasks.map(t=>`<div style="padding:5px 8px;background:var(--surface2);border-radius:var(--r-sm);margin-bottom:5px;font-size:.8em;border-left:3px solid var(--accent)">📋 ${t}</div>`).join('')}else{list.innerHTML=`<div style="color:var(--text3);font-size:.8em">${localStorage.getItem('lang')==='en'?'No tasks':'ไม่มีงาน'}</div>`}}
 function switchTab(btn,name){document.querySelectorAll('.tab-btn').forEach(b=>b.classList.remove('on'));document.querySelectorAll('.tab-pane').forEach(p=>p.classList.remove('on'));btn.classList.add('on');document.getElementById('pane-'+name).classList.add('on');if(name==='analytics'&&!analyticsBuilt){buildAnalyticsCharts();analyticsBuilt=true}if(name==='cal_todo'&&!calBuilt){buildCal();buildYearlyCharts(YA);calBuilt=true}location.hash=name}
-window.addEventListener('DOMContentLoaded',()=>{const h=location.hash.replace('#','');const valid=['tasks','analytics','stamps','tickets','queue','cal_todo','slips'];if(valid.includes(h)){const btn=[...document.querySelectorAll('.tab-btn')].find(b=>b.getAttribute('onclick')?.includes("'"+h+"'"));if(btn)switchTab(btn,h)}});
+window.addEventListener('DOMContentLoaded',()=>{const h=location.hash.replace('#','');const valid=['tasks','analytics','stamps','tickets','queue','cal_todo','slips','crm'];if(valid.includes(h)){const btn=[...document.querySelectorAll('.tab-btn')].find(b=>b.getAttribute('onclick')?.includes("'"+h+"'"));if(btn)switchTab(btn,h)}});
 async function postFD(url,data){const fd=new FormData();Object.entries(data).forEach(([k,v])=>fd.append(k,v));const r=await fetch(url,{method:'POST',body:fd});if(!r.ok)throw new Error('HTTP '+r.status);return r.json()}
 function setLoading(btn,loading){if(!btn)return;btn.disabled=loading;btn._orig=btn._orig||btn.textContent;btn.textContent=loading?'⟳...':btn._orig}
 async function changeStatus(tid,sel){const newStatus=sel.value;try{const d=await postFD('/admin/update_status',{task_id:tid,new_status:newStatus});if(d.status==='ok'){const labels={pending:'⏳ รอ',inprogress:'⚙️ ทำอยู่',completed:'✅ เสร็จ',cancelled:'❌ ยกเลิก'};const cls={pending:'badge-amber',inprogress:'badge-blue',completed:'badge-green',cancelled:'badge-red'};const ns=d.task.status;const el=document.getElementById('badge-'+tid);if(el){el.className='badge '+cls[ns];el.textContent=labels[ns]||ns}toast(labels[ns]||ns)}}catch(e){toast('Error','error')}}
-async function delTask(tid,title,btn){if(!confirm('ลบ "'+title+'"?'))return;setLoading(btn,true);try{const d=await postFD('/admin/delete',{task_id:tid});if(d.status==='ok'){const row=document.getElementById('task-'+tid);if(row){row.style.transition='.35s';row.style.opacity='0';setTimeout(()=>row.remove(),350)}toast('ลบแล้ว')}}catch(e){toast('Error','error');setLoading(btn,false)}}
+async function delTask(tid,title,btn){if(!confirm('ź "'+title+'"?'))return;setLoading(btn,true);try{const d=await postFD('/admin/delete',{task_id:tid});if(d.status==='ok'){const row=document.getElementById('task-'+tid);if(row){row.style.transition='.35s';row.style.opacity='0';setTimeout(()=>row.remove(),350)}toast('ลบแล้ว')}}catch(e){toast('Error','error');setLoading(btn,false)}}
 async function addStampManual(btn){const phone=document.getElementById('stamp-phone').value.trim();const name=document.getElementById('stamp-name').value.trim();if(!phone){toast('กรอกเบอร์โทรก่อน','warning');return}setLoading(btn,true);try{const d=await postFD('/admin/add_stamp_manual',{phone,name});if(d.status==='ok'){toast('เพิ่มแสตมป์แล้ว ('+d.stamps+' ดาว)');document.getElementById('stamp-phone').value='';document.getElementById('stamp-name').value=''}}catch(e){toast('Error','error')}setLoading(btn,false)}
 async function redeemStamp(phone,btn){if(!confirm('แลกรางวัล '+phone+'?'))return;setLoading(btn,true);try{const d=await postFD('/admin/redeem_stamp',{phone});if(d.status==='ok')toast('🎁 แลกรางวัลแล้ว')}catch(e){toast('Error','error')}setLoading(btn,false)}
 async function adminCheckin(btn){const code=(document.getElementById('ci-code').value||'').trim().toUpperCase();if(!code){toast('กรอกรหัสก่อน','warning');return}setLoading(btn,true);try{const d=await postFD('/admin/checkin_ticket',{code});if(d.status==='ok'){toast('✅ Check-in '+code);const el=document.getElementById('tc-'+code);if(el){el.className='badge badge-accent';el.textContent='✅ Done'}document.getElementById('ci-code').value=''}else toast('ไม่พบ Ticket','warning')}catch(e){toast('Error','error')}setLoading(btn,false)}
@@ -421,14 +456,49 @@ async function openQuote(tid, suggested){
     if(d.status==='ok')toast('Quote sent');
   }catch(e){toast('Quote failed','error')}
 }
+async function bulkStatus(){
+  const ids=[...document.querySelectorAll('.task-check:checked')].map(cb=>cb.value);
+  const new_status=document.getElementById('bulk-status').value;
+  if(!ids.length){toast('เลือกงานก่อน','warning');return}
+  if(!new_status){toast('เลือกสถานะก่อน','warning');return}
+  try{
+    const d=await postFD('/admin/bulk/status',{task_ids:ids.join(','),new_status});
+    if(d.status==='ok'){toast('อัปเดต '+d.changed.length+' งานแล้ว');setTimeout(()=>location.reload(),650)}
+  }catch(e){toast('Bulk update failed','error')}
+}
+async function openCustomer(phone){
+  try{
+    const d=await fetch('/admin/customer/'+encodeURIComponent(phone)).then(r=>r.json());
+    if(d.status!=='ok')throw new Error('not found');
+    const c=d.customer||{};
+    const orders=(d.orders||[]).slice(0,8).map(t=>`<div style="padding:7px 0;border-bottom:1px solid var(--border2)"><strong>${t.sn||t.id}</strong> ${t.title}<div style="font-size:.72em;color:var(--text3)">${t.status} · ${(t.createdAt||'').slice(0,10)}</div></div>`).join('')||'<div style="color:var(--text3)">No orders</div>';
+    const el=document.createElement('div');
+    el.innerHTML=`<div id="customerModal" style="position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:999;display:flex;align-items:center;justify-content:center;padding:20px" onclick="if(event.target===this)this.remove()"><div class="card card-p" style="width:min(560px,94vw);max-height:82vh;overflow:auto"><div class="sec-title" style="margin-bottom:8px">${c.name||phone}</div><div style="font-size:.78em;color:var(--text3);margin-bottom:10px">📞 ${phone}${c.email?' · ✉️ '+c.email:''} · Orders ${d.order_count} · Spend ฿${d.total_spend}</div><form onsubmit="saveCustomerTags(event,'${phone}')" style="display:grid;gap:8px;margin-bottom:12px"><input class="input" name="tags" placeholder="VIP, เครดิต, blacklist" value="${(c.tags||[]).join(', ')}"><textarea class="input" name="note" placeholder="หมายเหตุลูกค้า" style="min-height:70px">${c.note||''}</textarea><button class="btn btn-primary btn-sm" style="justify-content:center">Save CRM</button></form>${orders}<button class="btn btn-ghost btn-sm" style="margin-top:12px;width:100%;justify-content:center" onclick="document.getElementById('customerModal').remove()">Close</button></div></div>`;
+    document.body.appendChild(el.firstChild);
+  }catch(e){toast('Customer load failed','error')}
+}
+async function saveCustomerTags(e,phone){
+  e.preventDefault();
+  const fd=new FormData(e.target);
+  try{const d=await postFD('/admin/customer/'+encodeURIComponent(phone)+'/tags',{tags:fd.get('tags')||'',note:fd.get('note')||''});if(d.status==='ok')toast('บันทึก CRM แล้ว')}catch(err){toast('Save failed','error')}
+}
 async function viewTimeline(tid){
   try{
     const d=await fetch('/admin/task_events/'+tid).then(r=>r.json());
     const rows=(d.events||[]).map(e=>`<div style="padding:8px 0;border-bottom:1px solid var(--border2)"><div style="font-weight:700;color:var(--text);font-size:.84em">${e.action}</div><div style="font-size:.75em;color:var(--text3)">${(e.created_at||'').slice(0,16).replace('T',' ')} · ${e.actor||''}</div>${e.note?`<div style="font-size:.78em;color:var(--text2);margin-top:3px">${e.note}</div>`:''}</div>`).join('')||'<div style="color:var(--text3)">No events</div>';
     const el=document.createElement('div');
-    el.innerHTML=`<div id="timelineModal" style="position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:999;display:flex;align-items:center;justify-content:center" onclick="if(event.target===this)this.remove()"><div class="card card-p" style="width:min(520px,92vw);max-height:80vh;overflow:auto"><div class="sec-title" style="margin-bottom:10px">Timeline</div>${rows}<button class="btn btn-ghost btn-sm" style="margin-top:12px;width:100%;justify-content:center" onclick="document.getElementById('timelineModal').remove()">Close</button></div></div>`;
+    el.innerHTML=`<div id="timelineModal" style="position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:999;display:flex;align-items:center;justify-content:center;padding:20px" onclick="if(event.target===this)this.remove()"><div class="card card-p" style="width:min(520px,92vw);max-height:80vh;overflow:auto"><div class="sec-title" style="margin-bottom:10px">Timeline</div><form onsubmit="addTaskComment(event,'${tid}')" style="display:flex;gap:6px;margin-bottom:10px"><input name="comment" class="input" placeholder="เพิ่ม note ถึงทีม/ลูกค้า"><button class="btn btn-primary btn-sm">Add</button></form>${rows}<button class="btn btn-ghost btn-sm" style="margin-top:12px;width:100%;justify-content:center" onclick="document.getElementById('timelineModal').remove()">Close</button></div></div>`;
     document.body.appendChild(el.firstChild);
   }catch(e){toast('Timeline failed','error')}
+}
+async function addTaskComment(e,tid){
+  e.preventDefault();
+  const text=new FormData(e.target).get('comment');
+  if(!text)return;
+  try{
+    const d=await postFD('/task/comment',{task_id:tid,comment:text});
+    if(d.status==='ok'){toast('เพิ่ม note แล้ว');document.getElementById('timelineModal')?.remove();viewTimeline(tid)}
+  }catch(err){toast('Comment failed','error')}
 }
 
 function viewFiles(tid, title) {
