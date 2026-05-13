@@ -1,8 +1,9 @@
-<!DOCTYPE html>
+﻿<!DOCTYPE html>
 <html lang="th" data-lang="th">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta name="csrf-token" content="{{ csrf_token() }}">
   <title>{% block title %}Shop{% endblock %} — {{ company_name }}</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
@@ -153,7 +154,7 @@
       <div class="lang-sw"><button class="lang-btn" id="btn-th" onclick="setLang('th')">TH</button><button class="lang-btn" id="btn-en" onclick="setLang('en')">EN</button></div>
       <a href="/cart" class="cart-pill">🛒{% if cart_count and cart_count>0 %}<span class="cnt">{{ cart_count }}</span>{% else %}<span data-th="ตะกร้า" data-en="Cart">ตะกร้า</span>{% endif %}</a>
       <div class="theme-toggle" id="themeToggle" onclick="toggleTheme()" title="Theme"><span id="themeIcon">🌙</span></div>
-      <div class="tb-bell">🔔</div>
+      <div class="tb-bell" id="notifBell" onclick="showNotifications()" style="position:relative">🔔<span id="notifCount" style="display:none;position:absolute;top:-4px;right:-4px;background:var(--red);color:#fff;border-radius:999px;font-size:.62em;padding:1px 5px"></span></div>
       {% if session.username %}<a href="/admin" class="tb-avatar">{{ session.username[0]|upper }}</a>{% else %}<a href="/login" class="btn btn-primary btn-sm" data-th="เข้าสู่ระบบ" data-en="Login">เข้าสู่ระบบ</a>{% endif %}
     </div>
   </header>
@@ -167,7 +168,16 @@ function setLang(l){document.documentElement.setAttribute('data-lang',l);localSt
 function toggleSb(){document.getElementById('sidebar').classList.toggle('open');document.getElementById('sbOverlay').classList.toggle('open')}
 function closeSb(){document.getElementById('sidebar').classList.remove('open');document.getElementById('sbOverlay').classList.remove('open')}
 function toast(msg,type='success'){const icons={success:'✅',error:'❌',info:'ℹ️',warning:'⚠️'};const el=document.createElement('div');el.className=`toast t-${type}`;el.innerHTML=`<span>${icons[type]||'📢'}</span><span>${msg}</span>`;document.getElementById('toast-root').appendChild(el);requestAnimationFrame(()=>requestAnimationFrame(()=>el.classList.add('show')));setTimeout(()=>{el.classList.remove('show');setTimeout(()=>el.remove(),400)},3000)}
+const CSRF_TOKEN=document.querySelector('meta[name="csrf-token"]')?.content||'';
+document.addEventListener('DOMContentLoaded',()=>{document.querySelectorAll('form[method="post"],form[method="POST"]').forEach(f=>{if(!f.querySelector('input[name="csrf_token"]')){const i=document.createElement('input');i.type='hidden';i.name='csrf_token';i.value=CSRF_TOKEN;f.appendChild(i)}})});
+const _fetch=window.fetch.bind(window);
+window.fetch=(input,init={})=>{const method=(init.method||'GET').toUpperCase();if(!['GET','HEAD','OPTIONS'].includes(method)){init.headers=new Headers(init.headers||{});if(!init.headers.has('X-CSRFToken'))init.headers.set('X-CSRFToken',CSRF_TOKEN)}return _fetch(input,init)};
+async function loadNotifications(){if(!document.getElementById('notifBell'))return;try{const r=await fetch('/admin/notifications');if(!r.ok)return;const d=await r.json();window.__notifications=d;const c=document.getElementById('notifCount');if(c&&d.count){c.textContent=d.count>99?'99+':d.count;c.style.display='inline-block'}}catch(e){}}
+function showNotifications(){const d=window.__notifications||{notifications:[],events:[]};const rows=[...(d.events||[]).slice(0,8).map(e=>`<div style="padding:7px 0;border-bottom:1px solid var(--border2)"><strong>${e.action}</strong><div style="font-size:.72em;color:var(--text3)">${(e.created_at||'').slice(0,16).replace('T',' ')} · ${e.note||''}</div></div>`),...(d.notifications||[]).slice(0,6).map(n=>`<div style="padding:7px 0;border-bottom:1px solid var(--border2)"><strong>${n.channel}: ${n.status}</strong><div style="font-size:.72em;color:var(--text3)">${n.subject||n.error||''}</div></div>`)].join('')||'<div style="color:var(--text3)">No notifications</div>';const el=document.createElement('div');el.innerHTML=`<div id="notifModal" style="position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:999;display:flex;align-items:flex-start;justify-content:flex-end;padding:70px 20px" onclick="if(event.target===this)this.remove()"><div class="card card-p" style="width:min(380px,92vw);max-height:70vh;overflow:auto"><div class="sec-title" style="margin-bottom:8px">Notifications</div>${rows}</div></div>`;document.body.appendChild(el.firstChild)}
+if(document.getElementById('notifBell')){loadNotifications();setInterval(loadNotifications,30000)}
 </script>
 {% block extra_scripts %}{% endblock %}
 </body>
 </html>
+
+

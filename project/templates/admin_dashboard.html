@@ -158,6 +158,11 @@
 
 <!-- TAB 2: ANALYTICS -->
 <div id="pane-analytics" class="tab-pane">
+  <div class="grid-3" style="margin-bottom:14px">
+    <div class="card stat-card"><div class="stat-label">Approved Revenue</div><div class="stat-value" style="color:var(--green)">฿{{ '%.0f'|format(revenue.total) }}</div></div>
+    <div class="card stat-card"><div class="stat-label">Approved Slips</div><div class="stat-value">{{ revenue.approved_slips }}</div></div>
+    <div class="card stat-card"><div class="stat-label">Monthly Target</div><div class="stat-value">฿{{ '%.0f'|format(revenue.target) }}</div></div>
+  </div>
   <div class="grid-4" style="margin-bottom:14px">
     <div class="card stat-card"><div class="stat-label">Completion Rate</div><div class="stat-value" style="color:var(--green)">{{ analytics.completion_rate }}%</div></div>
     <div class="card stat-card"><div class="stat-label" data-th="งานทั้งหมด" data-en="Total">งานทั้งหมด</div><div class="stat-value">{{ stats.total }}</div></div>

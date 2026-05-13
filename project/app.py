@@ -1,4 +1,4 @@
-"""
+﻿"""
 app.py — ระบบจัดการงานลูกค้า v10 (Fixed)
 Bugs fixed:
   1. /model route: was creating empty task on every GET → now just renders template
@@ -9,15 +9,17 @@ Bugs fixed:
   6. todos.json not initialized → added to _init loop
   7. .env encoding: auto-fix UTF-8 on startup
 """
-import json, os, uuid, secrets as _secrets, io as _io, zipfile, tempfile, shutil, smtplib
+import json, os, uuid, secrets as _secrets, io as _io, zipfile, tempfile, shutil, smtplib, time, hmac, hashlib, threading, sqlite3
+from contextlib import contextmanager
 from datetime import datetime, date, timedelta
 from functools import wraps
 from collections import defaultdict
 from email.message import EmailMessage
 
 from flask import (Flask, render_template, request, redirect, url_for,
-                   session, jsonify, make_response, send_from_directory)
+                   session, jsonify, make_response, send_from_directory, abort)
 from werkzeug.utils import secure_filename
+from werkzeug.security import generate_password_hash, check_password_hash
 
 from promptpay import generate_promptpay_payload
 from queue_manager import (
@@ -69,20 +71,90 @@ PRODUCT_IMG_FOLDER = os.path.join(UPLOAD_FOLDER, 'products')
 ALLOWED_IMG      = {'png', 'jpg', 'jpeg', 'gif', 'webp'}
 MODEL_3D_FOLDER  = os.path.join(UPLOAD_FOLDER, '3d_models')
 GALLERY_FOLDER   = os.path.join(UPLOAD_FOLDER, 'gallery')
+BACKUP_FOLDER    = os.path.join(PROJECT_DIR, 'backups')
 ALLOWED_3D       = {'stl', 'obj', 'step', 'stp', '3mf', 'iges', 'igs', 'f3d', 'blend', 'fbx', 'zip'}
 
-for d in [UPLOAD_FOLDER, QR_FOLDER, SLIP_FOLDER, PRODUCT_IMG_FOLDER, MODEL_3D_FOLDER, GALLERY_FOLDER]:
+for d in [UPLOAD_FOLDER, QR_FOLDER, SLIP_FOLDER, PRODUCT_IMG_FOLDER, MODEL_3D_FOLDER, GALLERY_FOLDER, BACKUP_FOLDER]:
     os.makedirs(d, exist_ok=True)
 
 PROMPTPAY_PHONE  = os.environ.get('PROMPTPAY_PHONE', '0812345678')
 COMPANY_NAME     = os.environ.get('COMPANY_NAME', 'ระบบจัดการงานลูกค้า')
 STAMPS_TO_REWARD = 10
+JSON_LOCK_TIMEOUT = 8
+_JSON_THREAD_LOCK = threading.RLock()
+_LOGIN_ATTEMPTS = {}
+
+try:
+    import bcrypt as _bcrypt
+except Exception:
+    _bcrypt = None
+
+def hash_password(password):
+    if _bcrypt:
+        return 'bcrypt$' + _bcrypt.hashpw(password.encode('utf-8'), _bcrypt.gensalt()).decode('utf-8')
+    return generate_password_hash(password)
+
+def verify_password(stored, password):
+    stored = stored or ''
+    if stored.startswith('bcrypt$') and _bcrypt:
+        return _bcrypt.checkpw(password.encode('utf-8'), stored[7:].encode('utf-8'))
+    if stored.startswith(('scrypt:', 'pbkdf2:', 'argon2:')):
+        return check_password_hash(stored, password)
+    legacy_sha = hashlib.sha256(password.encode()).hexdigest()
+    return hmac.compare_digest(stored, password) or hmac.compare_digest(stored, legacy_sha)
+
+def password_needs_upgrade(stored):
+    return not (stored or '').startswith(('bcrypt$', 'scrypt:', 'pbkdf2:', 'argon2:'))
+
+@contextmanager
+def json_file_lock(path):
+    lock_path = f'{path}.lock'
+    deadline = time.time() + JSON_LOCK_TIMEOUT
+    with _JSON_THREAD_LOCK:
+        fd = None
+        while fd is None:
+            try:
+                fd = os.open(lock_path, os.O_CREAT | os.O_EXCL | os.O_RDWR)
+                os.write(fd, str(os.getpid()).encode('ascii'))
+            except FileExistsError:
+                if time.time() > deadline:
+                    raise TimeoutError(f'Could not lock {path}')
+                time.sleep(0.05)
+        try:
+            yield
+        finally:
+            try:
+                os.close(fd)
+            finally:
+                try: os.unlink(lock_path)
+                except FileNotFoundError: pass
+
+def csrf_token():
+    token = session.get('_csrf_token')
+    if not token:
+        token = _secrets.token_urlsafe(32)
+        session['_csrf_token'] = token
+    return token
 
 @app.context_processor
 def inject_globals():
     try: cc = cart_count()
     except: cc = 0
-    return dict(cart_count=cc, company_name=COMPANY_NAME)
+    return dict(cart_count=cc, company_name=COMPANY_NAME, csrf_token=csrf_token)
+
+@app.before_request
+def protect_post_requests():
+    maybe_auto_backup()
+    if request.method not in {'POST', 'PUT', 'PATCH', 'DELETE'}:
+        return
+    if request.path == '/webhook':
+        return
+    sent = request.form.get('csrf_token') or request.headers.get('X-CSRFToken') or request.headers.get('X-CSRF-Token')
+    if request.is_json and not sent:
+        data = request.get_json(silent=True) or {}
+        sent = data.get('csrf_token')
+    if not sent or not hmac.compare_digest(sent, csrf_token()):
+        return jsonify({'status':'error','error':'csrf'}), 400
 
 # ── Data init ──────────────────────────────────────────────────────────────────
 def _init(path, default):
@@ -106,17 +178,22 @@ for p, d in [
     ('gallery.json', []),
     ('reviews.json', []),
     ('coupons.json', []),
+    ('invoices.json', {'last_no': 0, 'items': {}}),
 ]:
     _init(p, d)
 
 def _r(p, default):
     try:
-        with open(p, 'r', encoding='utf-8') as f: return json.load(f)
+        with json_file_lock(p):
+            with open(p, 'r', encoding='utf-8') as f: return json.load(f)
     except: return default
 
 def _w(p, data):
-    with open(p, 'w', encoding='utf-8') as f:
-        json.dump(data, f, ensure_ascii=False, indent=2)
+    with json_file_lock(p):
+        tmp = f'{p}.{os.getpid()}.tmp'
+        with open(tmp, 'w', encoding='utf-8') as f:
+            json.dump(data, f, ensure_ascii=False, indent=2)
+        os.replace(tmp, p)
 
 read_tasks    = lambda: _r('tasks.json', [])
 write_tasks   = lambda d: _w('tasks.json', d)
@@ -142,6 +219,8 @@ read_reviews  = lambda: _r('reviews.json', [])
 write_reviews = lambda d: _w('reviews.json', d)
 read_coupons  = lambda: _r('coupons.json', [])
 write_coupons = lambda d: _w('coupons.json', d)
+read_invoices = lambda: _r('invoices.json', {'last_no': 0, 'items': {}})
+write_invoices= lambda d: _w('invoices.json', d)
 read_sn       = lambda: _r('sn_counter.json', {'last_sn': 0})
 write_sn      = lambda d: _w('sn_counter.json', d)
 
@@ -236,11 +315,38 @@ def send_line_admin_notification(task, text):
     except Exception as e:
         log_notification(task['id'], 'line', admin_id, 'failed', 'LINE admin notice', str(e))
 
+def send_sms_notification(task, text):
+    phone = ''.join(c for c in task.get('customer', {}).get('phone', '') if c.isdigit())
+    if not phone:
+        return
+    sid = os.environ.get('TWILIO_ACCOUNT_SID', '')
+    token = os.environ.get('TWILIO_AUTH_TOKEN', '')
+    sender = os.environ.get('TWILIO_FROM', '')
+    if not (sid and token and sender):
+        log_notification(task['id'], 'sms', phone, 'skipped', 'SMS status notice', 'Twilio not configured')
+        return
+    if phone.startswith('0'):
+        phone = '+66' + phone[1:]
+    elif not phone.startswith('+'):
+        phone = '+' + phone
+    try:
+        import requests
+        resp = requests.post(
+            f'https://api.twilio.com/2010-04-01/Accounts/{sid}/Messages.json',
+            data={'From': sender, 'To': phone, 'Body': text},
+            auth=(sid, token),
+            timeout=5,
+        )
+        log_notification(task['id'], 'sms', phone, 'sent' if resp.ok else 'failed', 'SMS status notice', resp.text[:300])
+    except Exception as e:
+        log_notification(task['id'], 'sms', phone, 'failed', 'SMS status notice', str(e))
+
 def notify_status_change(task, old_status, new_status):
     title = task.get('sn') or task.get('title', task['id'])
     subject = f'Order {title}: {STATUS_LABELS.get(new_status, new_status)}'
     body = f"Your order status changed from {STATUS_LABELS.get(old_status, old_status)} to {STATUS_LABELS.get(new_status, new_status)}."
     send_email_notification(task, subject, body)
+    send_sms_notification(task, body)
 
 def calculate_3d_price(specs, overrides=None):
     overrides = overrides or {}
@@ -252,7 +358,7 @@ def calculate_3d_price(specs, overrides=None):
     sx = float(specs.get('size_x') or 0)
     sy = float(specs.get('size_y') or 0)
     sz = float(specs.get('size_z') or 0)
-    volume_cm3 = max(0, sx * sy * sz / 1000)
+    volume_cm3 = float(specs.get('volume_cm3') or 0) or max(0, sx * sy * sz / 1000)
     infill = max(5, min(100, float(specs.get('infill') or 20))) / 100
     material = specs.get('material') or 'PLA'
     base = volume_cm3 * rates.get(material, 3.0) * (0.45 + infill) * quality.get(specs.get('quality'), 1.0) * qty
@@ -268,6 +374,77 @@ def calculate_3d_price(specs, overrides=None):
         'deposit_amount': round(amount * deposit_percent / 100, 2),
         'balance_amount': round(amount - (amount * deposit_percent / 100), 2),
     }
+
+def stl_volume_cm3(path):
+    try:
+        from stl import mesh
+        m = mesh.Mesh.from_file(path)
+        volume_mm3, _, _ = m.get_mass_properties()
+        return round(abs(float(volume_mm3)) / 1000, 2)
+    except Exception:
+        return 0
+
+def optimize_image(path, max_size=(1600, 1600), thumb=False):
+    try:
+        from PIL import Image, ImageOps
+        with Image.open(path) as im:
+            im = ImageOps.exif_transpose(im)
+            im.thumbnail((360, 360) if thumb else max_size)
+            if im.mode not in ('RGB', 'RGBA'):
+                im = im.convert('RGB')
+            im.save(path, optimize=True, quality=82)
+    except Exception:
+        pass
+
+def save_optimized_upload(file, folder, filename):
+    path = os.path.join(folder, filename)
+    file.save(path)
+    optimize_image(path)
+    base, ext = os.path.splitext(filename)
+    thumb_name = f'{base}_thumb{ext}'
+    thumb_path = os.path.join(folder, thumb_name)
+    try:
+        shutil.copyfile(path, thumb_path)
+        optimize_image(thumb_path, thumb=True)
+    except Exception:
+        thumb_name = ''
+    return filename, thumb_name
+
+def create_backup_zip(auto=False):
+    stamp = datetime.now().strftime('%Y%m%d_%H%M')
+    fname = f"zerphyrus_{'auto_' if auto else ''}{stamp}.zip"
+    path = os.path.join(BACKUP_FOLDER, fname)
+    with zipfile.ZipFile(path, 'w', zipfile.ZIP_DEFLATED) as z:
+        for name in [f for f in os.listdir('.') if f.endswith('.json')]:
+            z.write(name, name)
+        for root, _, files in os.walk(UPLOAD_FOLDER):
+            for fn in files:
+                fp = os.path.join(root, fn)
+                z.write(fp, os.path.relpath(fp, PROJECT_DIR))
+    return path
+
+def maybe_auto_backup():
+    today = date.today().isoformat()
+    marker = os.path.join(BACKUP_FOLDER, '.last_auto_backup')
+    try:
+        last = open(marker, encoding='utf-8').read().strip() if os.path.exists(marker) else ''
+        if last != today:
+            create_backup_zip(auto=True)
+            with open(marker, 'w', encoding='utf-8') as f: f.write(today)
+    except Exception:
+        pass
+
+def migrate_json_to_sqlite(db_path='zerphyrus.sqlite3'):
+    conn = sqlite3.connect(db_path)
+    try:
+        conn.execute('create table if not exists kv_store (name text primary key, data text not null, updated_at text not null)')
+        for name in [f for f in os.listdir('.') if f.endswith('.json')]:
+            data = open(name, encoding='utf-8').read()
+            conn.execute('replace into kv_store(name,data,updated_at) values (?,?,?)', (name, data, _now()))
+        conn.commit()
+    finally:
+        conn.close()
+    return db_path
 
 def build_action_items(tasks, slips):
     today = date.today()
@@ -295,6 +472,45 @@ def build_action_items(tasks, slips):
         except Exception:
             pass
     return items[:12]
+
+def revenue_analytics(slips):
+    monthly = defaultdict(float)
+    total = 0.0
+    approved = 0
+    for task_slips in slips.values():
+        for s in task_slips:
+            if s.get('status') == 'approved':
+                try:
+                    amt = float(s.get('amount') or 0)
+                except Exception:
+                    amt = 0
+                total += amt; approved += 1
+                key = (s.get('verified_at') or s.get('uploaded_at') or '')[:7]
+                if key: monthly[key] += amt
+    months = sorted(monthly.keys())[-12:]
+    target = float(os.environ.get('MONTHLY_REVENUE_TARGET', '0') or 0)
+    return {
+        'total': round(total, 2), 'approved_slips': approved,
+        'month_labels': months, 'month_values': [round(monthly[m], 2) for m in months],
+        'target': target,
+    }
+
+def invoice_for_task(task):
+    invoices = read_invoices()
+    items = invoices.setdefault('items', {})
+    if task['id'] not in items:
+        invoices['last_no'] = invoices.get('last_no', 0) + 1
+        amount = float(task.get('quote', {}).get('amount') or task.get('order_total') or 0)
+        vat_rate = float(os.environ.get('VAT_RATE', '7') or 0)
+        subtotal = round(amount / (1 + vat_rate / 100), 2) if vat_rate else amount
+        vat = round(amount - subtotal, 2)
+        items[task['id']] = {
+            'invoice_no': f"INV-{datetime.now().strftime('%Y%m')}-{invoices['last_no']:04d}",
+            'task_id': task['id'], 'subtotal': subtotal, 'vat_rate': vat_rate,
+            'vat': vat, 'total': round(amount, 2), 'created_at': _now(),
+        }
+        write_invoices(invoices)
+    return items[task['id']]
 
 def next_sn() -> str:
     counter = read_sn(); counter['last_sn'] = counter.get('last_sn', 0) + 1; write_sn(counter)
@@ -392,6 +608,7 @@ def admin_context(tasks_override=None):
         qr_image=get_qr_image(), all_slips=slips,
         pending_slips=pending_slips_count(), todos=read_todos(),
         action_items=build_action_items(all_tasks, slips),
+        revenue=revenue_analytics(slips),
         status_flow=STATUS_FLOW, status_labels=STATUS_LABELS,
         events=read_events(), notifications=read_notifications()[:20],
         gallery=read_gallery(), reviews=read_reviews(), coupons=read_coupons(),
@@ -465,6 +682,12 @@ def model_submit():
         'budget':   request.form.get('budget', ''),
         'files':    saved_files,
     }
+    for sf in saved_files:
+        if sf.get('ext') == 'stl':
+            vol = stl_volume_cm3(os.path.join(MODEL_3D_FOLDER, sf['filename']))
+            if vol:
+                specs_3d['volume_cm3'] = vol
+                break
 
     qty = specs_3d['quantity']
     mat = specs_3d['material']
@@ -624,6 +847,23 @@ def admin_order_pdf(task_id):
     resp.headers['Content-Disposition'] = f'attachment; filename="order_{task_id[-6:]}.pdf"'
     return resp
 
+@app.route('/admin/invoice/<task_id>')
+@admin_required
+def admin_invoice(task_id):
+    if not PDF_ENABLED: return 'PDF not ready', 500
+    tasks = read_tasks(); task = find_task(tasks, task_id)
+    if not task: return 'not found', 404
+    inv = invoice_for_task(task)
+    inv_task = {**task, 'title': f"Invoice {inv['invoice_no']} - {task.get('title','')}",
+                'description': f"Subtotal: {inv['subtotal']:.2f}\nVAT {inv['vat_rate']:.1f}%: {inv['vat']:.2f}\nTotal: {inv['total']:.2f}"}
+    pdf_bytes = generate_order_pdf(inv_task, '', '', COMPANY_NAME)
+    resp = make_response(pdf_bytes)
+    resp.headers['Content-Type'] = 'application/pdf'
+    resp.headers['Content-Disposition'] = f'attachment; filename="{inv["invoice_no"]}.pdf"'
+    if request.args.get('email') == '1':
+        send_email_notification(task, f'Invoice {inv["invoice_no"]}', 'Your invoice is ready. Please see the attached PDF in the admin download for now.')
+    return resp
+
 @app.route('/ticket/<code>')
 def view_ticket(code):
     tickets = read_tickets(); ticket = tickets.get(code.upper())
@@ -659,10 +899,20 @@ def line_webhook():
 def login():
     users = read_users(); ft = len(users) == 0
     if request.method == 'POST':
+        ip = request.headers.get('X-Forwarded-For', request.remote_addr or 'local').split(',')[0].strip()
+        attempts = [t for t in _LOGIN_ATTEMPTS.get(ip, []) if time.time() - t < 900]
+        if len(attempts) >= 5:
+            return render_template('login.html', error='พยายามเข้าสู่ระบบมากเกินไป กรุณารอ 15 นาที', first_time=ft, active_page='login'), 429
         u = request.form.get('username',''); p = request.form.get('password','')
-        if ft: users[u] = p; write_users(users); session['username'] = u; return redirect(url_for('admin_dashboard'))
-        elif u in users and users[u] == p: session['username'] = u; return redirect(url_for('admin_dashboard'))
-        else: return render_template('login.html', error='ชื่อผู้ใช้หรือรหัสผ่านไม่ถูกต้อง', first_time=ft, active_page='login')
+        if ft:
+            users[u] = hash_password(p); write_users(users); session['username'] = u; _LOGIN_ATTEMPTS.pop(ip, None); return redirect(url_for('admin_dashboard'))
+        elif u in users and verify_password(users[u], p):
+            if password_needs_upgrade(users[u]):
+                users[u] = hash_password(p); write_users(users)
+            session['username'] = u; _LOGIN_ATTEMPTS.pop(ip, None); return redirect(url_for('admin_dashboard'))
+        else:
+            attempts.append(time.time()); _LOGIN_ATTEMPTS[ip] = attempts
+            return render_template('login.html', error='ชื่อผู้ใช้หรือรหัสผ่านไม่ถูกต้อง', first_time=ft, active_page='login')
     return render_template('login.html', first_time=ft, active_page='login')
 
 @app.route('/logout')
@@ -753,6 +1003,13 @@ def delete_task():
 def admin_task_events(task_id):
     return jsonify({'status': 'ok', 'events': events_for_task(task_id)})
 
+@app.route('/admin/notifications')
+@admin_required
+def admin_notifications():
+    rows = read_notifications()[:20]
+    events = read_events()[:20]
+    return jsonify({'status':'ok','notifications':rows,'events':events,'count':len(rows)+len(events)})
+
 @app.route('/admin/quote', methods=['POST'])
 @admin_required
 def admin_quote():
@@ -780,6 +1037,37 @@ def admin_quote():
     send_email_notification(task, 'Quote ready for your order', f"Quote amount: {amount:.2f} THB\nDeposit: {deposit_amount:.2f} THB")
     return jsonify({'status':'ok','quote':task['quote'], 'task': task})
 
+@app.route('/task/comment', methods=['POST'])
+def task_comment():
+    task_id = request.form.get('task_id','')
+    text = request.form.get('comment','').strip()
+    if not text: return jsonify({'status':'error','error':'empty'}), 400
+    tasks = read_tasks(); task = find_task(tasks, task_id)
+    if not task: return jsonify({'status':'error','error':'not found'}), 404
+    is_admin = bool(session.get('username'))
+    is_customer = session.get('customer_phone') == task.get('customer', {}).get('phone')
+    if not (is_admin or is_customer):
+        return jsonify({'status':'error','error':'forbidden'}), 403
+    ev = add_event(task_id, 'comment_admin' if is_admin else 'comment_customer', text)
+    if is_customer:
+        send_line_admin_notification(task, f"Customer comment on {task.get('sn','')}: {text[:120]}")
+    return jsonify({'status':'ok','event':ev})
+
+@app.route('/admin/bulk/status', methods=['POST'])
+@admin_required
+def admin_bulk_status():
+    ids = request.form.getlist('task_ids') or [x for x in request.form.get('task_ids','').split(',') if x]
+    new_status = request.form.get('new_status','')
+    if new_status not in set(STATUS_FLOW): return jsonify({'status':'error','error':'invalid status'}), 400
+    tasks = read_tasks(); changed = []
+    for t in tasks:
+        if t.get('id') in ids:
+            old = t.get('status','pending')
+            t['status'] = new_status; t['updatedAt'] = _now(); t['updatedBy'] = session.get('username','')
+            changed.append(t['id']); add_event(t['id'], 'bulk_status_changed', f"{old} → {new_status}")
+    write_tasks(tasks)
+    return jsonify({'status':'ok','changed':changed})
+
 @app.route('/quote/<task_id>/<action>', methods=['POST'])
 def customer_quote_action(task_id, action):
     if action not in {'approve', 'reject'}:
@@ -803,16 +1091,9 @@ def customer_quote_action(task_id, action):
 @app.route('/admin/backup')
 @admin_required
 def admin_backup():
-    buf = _io.BytesIO()
-    with zipfile.ZipFile(buf, 'w', zipfile.ZIP_DEFLATED) as z:
-        for name in [f for f in os.listdir('.') if f.endswith('.json')]:
-            z.write(name, name)
-        for root, _, files in os.walk(UPLOAD_FOLDER):
-            for fn in files:
-                path = os.path.join(root, fn)
-                z.write(path, os.path.relpath(path, PROJECT_DIR))
-    buf.seek(0)
-    resp = make_response(buf.getvalue())
+    path = create_backup_zip(auto=False)
+    with open(path, 'rb') as f: data = f.read()
+    resp = make_response(data)
     resp.headers['Content-Type'] = 'application/zip'
     resp.headers['Content-Disposition'] = f'attachment; filename="zerphyrus_backup_{datetime.now().strftime("%Y%m%d_%H%M")}.zip"'
     return resp
@@ -848,6 +1129,12 @@ def admin_restore():
         try: os.unlink(tmp.name)
         except Exception: pass
 
+@app.route('/admin/migrate_sqlite', methods=['POST'])
+@admin_required
+def admin_migrate_sqlite():
+    db_path = migrate_json_to_sqlite()
+    return jsonify({'status':'ok','db':db_path})
+
 @app.route('/admin/coupons/add', methods=['POST'])
 @admin_required
 def admin_coupon_add():
@@ -862,6 +1149,23 @@ def admin_coupon_add():
     })
     write_coupons(coupons)
     return jsonify({'status':'ok','coupons':coupons})
+
+@app.route('/admin/customer/<phone>')
+@admin_required
+def admin_customer_detail(phone):
+    customers = read_customers(); customer = customers.get(phone, {'phone': phone})
+    tasks = [t for t in read_tasks() if t.get('customer', {}).get('phone') == phone]
+    total_spend = sum(float(t.get('quote', {}).get('amount') or t.get('order_total') or 0) for t in tasks)
+    return jsonify({'status':'ok','customer':customer,'orders':tasks,'order_count':len(tasks),'total_spend':round(total_spend,2)})
+
+@app.route('/admin/customer/<phone>/tags', methods=['POST'])
+@admin_required
+def admin_customer_tags(phone):
+    customers = read_customers(); c = customers.setdefault(phone, {'phone': phone})
+    c['tags'] = [x.strip() for x in request.form.get('tags','').split(',') if x.strip()]
+    c['note'] = request.form.get('note','')
+    write_customers(customers)
+    return jsonify({'status':'ok','customer':c})
 
 @app.route('/admin/gallery/add', methods=['POST'])
 @admin_required
@@ -1179,7 +1483,8 @@ def admin_product_add():
     file = request.files.get('image')
     if file and file.filename and allowed_file(file.filename):
         ext = file.filename.rsplit('.',1)[1].lower(); fname = f'{pid}.{ext}'
-        file.save(os.path.join(PRODUCT_IMG_FOLDER, fname)); product['image'] = f'products/{fname}'
+        _, thumb = save_optimized_upload(file, PRODUCT_IMG_FOLDER, fname)
+        product['image'] = f'products/{fname}'; product['thumb'] = f'products/{thumb}' if thumb else product['image']
     products.insert(0, product); write_products(products)
     return jsonify({'status':'ok','id':pid,'name':product['name']})
 
@@ -1201,7 +1506,8 @@ def admin_product_edit(pid):
             file = request.files.get('image')
             if file and file.filename and allowed_file(file.filename):
                 ext = file.filename.rsplit('.',1)[1].lower(); fname = f'{pid}.{ext}'
-                file.save(os.path.join(PRODUCT_IMG_FOLDER, fname)); p['image'] = f'products/{fname}'
+                _, thumb = save_optimized_upload(file, PRODUCT_IMG_FOLDER, fname)
+                p['image'] = f'products/{fname}'; p['thumb'] = f'products/{thumb}' if thumb else p['image']
             break
     write_products(products); return jsonify({'status':'ok','name':updated_name})
 
@@ -1292,8 +1598,7 @@ def write_customers(d): _w('customers.json', d)
 
 _init('customers.json', {})
 
-import hashlib as _hashlib
-def _hash_pw(pw): return _hashlib.sha256(pw.encode()).hexdigest()
+def _hash_pw(pw): return hash_password(pw)
 
 @app.route('/customer/register', methods=['GET','POST'])
 def customer_register():
@@ -1333,9 +1638,13 @@ def customer_login():
         pw    = request.form.get('password','')
         customers = read_customers()
         c = customers.get(phone)
-        if not c or c['password'] != _hash_pw(pw):
+        if not c or not verify_password(c.get('password',''), pw):
             error = 'เบอร์โทรหรือรหัสผ่านไม่ถูกต้อง'
         else:
+            if password_needs_upgrade(c.get('password','')):
+                c['password'] = hash_password(pw)
+                customers[phone] = c
+                write_customers(customers)
             session['customer_phone'] = phone
             session['customer_name']  = c['name']
             return redirect('/customer/dashboard')
@@ -1411,3 +1720,4 @@ if __name__ == '__main__':
                     k, v = line.strip().split('=', 1)
                     os.environ.setdefault(k, v)
     app.run(debug=True, port=5000)
+
