@@ -76,17 +76,20 @@ class SupabaseKVStore:
         }
 
     def read(self, name, default=None):
-        resp = requests.get(
-            f"{self.url}/rest/v1/{self.table}",
-            headers=self.headers,
-            params={"select": "data", "name": f"eq.{name}", "limit": "1"},
-            timeout=self.timeout,
-        )
-        if resp.status_code == 404:
+        try:
+            resp = requests.get(
+                f"{self.url}/rest/v1/{self.table}",
+                headers=self.headers,
+                params={"select": "data", "name": f"eq.{name}", "limit": "1"},
+                timeout=self.timeout,
+            )
+            if resp.status_code == 404:
+                return default
+            resp.raise_for_status()
+            rows = resp.json()
+            return rows[0]["data"] if rows else default
+        except (requests.RequestException, ValueError, KeyError, IndexError):
             return default
-        resp.raise_for_status()
-        rows = resp.json()
-        return rows[0]["data"] if rows else default
 
     def write(self, name, data):
         resp = requests.post(
@@ -99,8 +102,9 @@ class SupabaseKVStore:
         resp.raise_for_status()
 
     def init_file(self, name, default):
-        if self.read(name, None) is None:
-            self.write(name, default)
+        # On serverless hosts, app import must stay cheap and resilient.
+        # Missing rows are handled by read defaults and writes will upsert later.
+        return None
 
 
 def _should_use_supabase():
