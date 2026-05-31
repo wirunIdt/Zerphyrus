@@ -9,7 +9,7 @@ Bugs fixed:
   6. todos.json not initialized → added to _init loop
   7. .env encoding: auto-fix UTF-8 on startup
 """
-import json, os, uuid, secrets as _secrets, io as _io, zipfile, tempfile, shutil, smtplib, time, hmac, hashlib, threading, sqlite3
+import json, os, uuid, secrets as _secrets, io as _io, zipfile, tempfile, shutil, smtplib, time, hmac, hashlib, threading, sqlite3, mimetypes
 from contextlib import contextmanager
 from datetime import datetime, date, timedelta
 from functools import wraps
@@ -21,6 +21,7 @@ from flask import (Flask, render_template, request, redirect, url_for,
 from werkzeug.utils import secure_filename
 from werkzeug.security import generate_password_hash, check_password_hash
 
+from data_store import init_data, read_data, write_data
 from promptpay import generate_promptpay_payload
 from queue_manager import (
     read_queue, read_calendar, write_calendar,
@@ -28,6 +29,13 @@ from queue_manager import (
     get_queue_with_tasks, yearly_analytics,
     add_custom_date, remove_custom_date, update_calendar_settings,
     working_days_count, MONTH_TH
+)
+from storage_backend import (
+    delete_object as delete_storage_object,
+    download_bytes as download_storage_bytes,
+    public_url as storage_public_url,
+    storage_enabled,
+    upload_path as upload_storage_path,
 )
 
 try:
@@ -64,7 +72,7 @@ app.wsgi_app = ProxyFix(app.wsgi_app, x_proto=1, x_host=1)
 
 PREFERRED_SCHEME = os.environ.get('PREFERRED_SCHEME', '')
 PROJECT_DIR      = os.path.dirname(os.path.abspath(__file__))
-UPLOAD_FOLDER    = os.path.join(PROJECT_DIR, 'uploads')
+UPLOAD_FOLDER    = os.environ.get('UPLOAD_FOLDER') or ('/tmp/zerphyrus_uploads' if os.environ.get('VERCEL') else os.path.join(PROJECT_DIR, 'uploads'))
 QR_FOLDER        = os.path.join(UPLOAD_FOLDER, 'qr')
 SLIP_FOLDER      = os.path.join(UPLOAD_FOLDER, 'slips')
 PRODUCT_IMG_FOLDER = os.path.join(UPLOAD_FOLDER, 'products')
@@ -160,9 +168,7 @@ def protect_post_requests():
 
 # ── Data init ──────────────────────────────────────────────────────────────────
 def _init(path, default):
-    if not os.path.exists(path):
-        with open(path, 'w', encoding='utf-8') as f:
-            json.dump(default, f, ensure_ascii=False)
+    init_data(path, default)
 
 # FIX 6: Added todos.json to init list
 for p, d in [
@@ -185,17 +191,10 @@ for p, d in [
     _init(p, d)
 
 def _r(p, default):
-    try:
-        with json_file_lock(p):
-            with open(p, 'r', encoding='utf-8') as f: return json.load(f)
-    except: return default
+    return read_data(p, default)
 
 def _w(p, data):
-    with json_file_lock(p):
-        tmp = f'{p}.{os.getpid()}.tmp'
-        with open(tmp, 'w', encoding='utf-8') as f:
-            json.dump(data, f, ensure_ascii=False, indent=2)
-        os.replace(tmp, p)
+    write_data(p, data)
 
 read_tasks    = lambda: _r('tasks.json', [])
 write_tasks   = lambda d: _w('tasks.json', d)
@@ -225,6 +224,27 @@ read_invoices = lambda: _r('invoices.json', {'last_no': 0, 'items': {}})
 write_invoices= lambda d: _w('invoices.json', d)
 read_sn       = lambda: _r('sn_counter.json', {'last_sn': 0})
 write_sn      = lambda d: _w('sn_counter.json', d)
+
+DATA_EXPORT_FILES = [
+    'tasks.json',
+    'users.json',
+    'stamps.json',
+    'tickets.json',
+    'slips.json',
+    'products.json',
+    'orders_cart.json',
+    'sn_counter.json',
+    'todos.json',
+    'events.json',
+    'notifications.json',
+    'gallery.json',
+    'reviews.json',
+    'coupons.json',
+    'invoices.json',
+    'customers.json',
+    'queue.json',
+    'work_calendar.json',
+]
 
 STATUS_FLOW = ['pending', 'quoted', 'approved', 'inprogress', 'printing', 'postprocessing', 'qc', 'ready', 'delivered', 'completed', 'cancelled']
 STATUS_LABELS = {
@@ -370,44 +390,75 @@ def _deadline_days(deadline):
     except Exception:
         return None
 
+MATERIAL_PRICING = {
+    'PLA': {'gram': 3.0, 'density': 1.24},
+    'ABS': {'gram': 3.6, 'density': 1.04},
+    'PETG': {'gram': 3.8, 'density': 1.27},
+    'TPU': {'gram': 5.5, 'density': 1.21},
+    'Resin': {'gram': 7.0, 'density': 1.12},
+    'Nylon': {'gram': 6.5, 'density': 1.15},
+    'ASA': {'gram': 5.0, 'density': 1.07},
+    'CF-PLA': {'gram': 6.0, 'density': 1.30},
+}
+QUALITY_MULTIPLIER = {'draft': .85, 'standard': 1.0, 'fine': 1.35, 'ultra': 1.8}
+FINISH_FEES = {'as_printed': 0, 'sanded': 80, 'polished': 140, 'painted': 220}
+SUPPORT_PRICING = {
+    'none': {'fee': 0, 'waste': 0},
+    'auto': {'fee': 40, 'waste': .12},
+    'minimal': {'fee': 60, 'waste': .18},
+    'full': {'fee': 120, 'waste': .35},
+}
+CUSTOM_SERVICE_RATES = {
+    'design': 450,
+    'laser': 180,
+    'cnc': 650,
+    'print': 120,
+    'assembly': 300,
+    'repair': 250,
+    'custom': 300,
+}
+CUSTOM_COMPLEXITY_MULTIPLIER = {'simple': 1.0, 'standard': 1.35, 'complex': 1.9}
+CUSTOM_FINISH_FEES = {'none': 0, 'basic': 80, 'premium': 220}
+
+def _positive_quantity(value, default=1):
+    return max(1, _int(value, default))
+
+def _rush_multiplier(deadline):
+    days_left = _deadline_days(deadline)
+    if days_left is not None and days_left <= 3:
+        return 1.35
+    if days_left is not None and days_left <= 7:
+        return 1.15
+    return 1.0
+
+def _split_amount(amount, deposit_percent):
+    deposit = round(amount * deposit_percent / 100, 2)
+    return deposit, round(amount - deposit, 2)
+
 def calculate_3d_price(specs, overrides=None):
     overrides = overrides or {}
     material = specs.get('material') or 'PLA'
-    material_cfg = {
-        'PLA': {'gram': 3.0, 'density': 1.24}, 'ABS': {'gram': 3.6, 'density': 1.04},
-        'PETG': {'gram': 3.8, 'density': 1.27}, 'TPU': {'gram': 5.5, 'density': 1.21},
-        'Resin': {'gram': 7.0, 'density': 1.12}, 'Nylon': {'gram': 6.5, 'density': 1.15},
-        'ASA': {'gram': 5.0, 'density': 1.07}, 'CF-PLA': {'gram': 6.0, 'density': 1.30},
-    }
-    quality = {'draft': .85, 'standard': 1.0, 'fine': 1.35, 'ultra': 1.8}
-    finish = {'as_printed': 0, 'sanded': 80, 'polished': 140, 'painted': 220}
-    support = {'none': {'fee': 0, 'waste': 0}, 'auto': {'fee': 40, 'waste': .12},
-               'minimal': {'fee': 60, 'waste': .18}, 'full': {'fee': 120, 'waste': .35}}
-    qty = max(1, _int(specs.get('quantity'), 1))
+    qty = _positive_quantity(specs.get('quantity'))
     sx = _num(specs.get('size_x'))
     sy = _num(specs.get('size_y'))
     sz = _num(specs.get('size_z'))
     volume_cm3 = float(specs.get('volume_cm3') or 0) or max(0, sx * sy * sz / 1000)
     infill = max(5, min(100, _num(specs.get('infill'), 20))) / 100
-    cfg = material_cfg.get(material, material_cfg['PLA'])
-    support_cfg = support.get(specs.get('support'), support['auto'])
+    cfg = MATERIAL_PRICING.get(material, MATERIAL_PRICING['PLA'])
+    support_cfg = SUPPORT_PRICING.get(specs.get('support'), SUPPORT_PRICING['auto'])
     billable_volume = volume_cm3 * (0.28 + infill) * (1 + support_cfg['waste'])
     material_weight_g = billable_volume * cfg['density'] * qty
     material_cost = material_weight_g * cfg['gram']
-    machine_hours = max(.4, (volume_cm3 * qty / 22) * quality.get(specs.get('quality'), 1.0))
+    machine_hours = max(.4, (volume_cm3 * qty / 22) * QUALITY_MULTIPLIER.get(specs.get('quality'), 1.0))
     machine_cost = machine_hours * _num(overrides.get('machine_hour_rate'), 45)
-    fees = finish.get(specs.get('finish'), 0) + support_cfg['fee']
-    rush_multiplier = 1.0
-    days_left = _deadline_days(specs.get('deadline'))
-    if days_left is not None and days_left <= 3:
-        rush_multiplier = 1.35
-    elif days_left is not None and days_left <= 7:
-        rush_multiplier = 1.15
+    fees = FINISH_FEES.get(specs.get('finish'), 0) + support_cfg['fee']
+    rush_multiplier = _rush_multiplier(specs.get('deadline'))
     minimum = float(overrides.get('minimum') or 150)
     discount = float(overrides.get('discount') or 0)
     subtotal = (material_cost + machine_cost + fees) * rush_multiplier
     amount = max(minimum, subtotal - discount)
     deposit_percent = float(overrides.get('deposit_percent') or 50)
+    deposit_amount, balance_amount = _split_amount(amount, deposit_percent)
     gaps = []
     if not volume_cm3:
         gaps.append('ไม่มี volume จาก STL หรือขนาดชิ้นงาน')
@@ -426,22 +477,16 @@ def calculate_3d_price(specs, overrides=None):
         'rush_multiplier': rush_multiplier,
         'subtotal': round(subtotal, 2), 'discount': round(discount, 2),
         'amount': round(amount, 2), 'deposit_percent': deposit_percent,
-        'deposit_amount': round(amount * deposit_percent / 100, 2),
-        'balance_amount': round(amount - (amount * deposit_percent / 100), 2),
+        'deposit_amount': deposit_amount,
+        'balance_amount': balance_amount,
         'confidence': confidence, 'pricing_gaps': gaps,
     }
 
 def calculate_custom_order_price(specs, overrides=None):
     overrides = overrides or {}
     service = specs.get('service_type') or 'custom'
-    qty = max(1, _int(specs.get('quantity'), 1))
-    base_rates = {
-        'design': 450, 'laser': 180, 'cnc': 650, 'print': 120,
-        'assembly': 300, 'repair': 250, 'custom': 300,
-    }
-    complexity_mult = {'simple': 1.0, 'standard': 1.35, 'complex': 1.9}
-    finish_fee = {'none': 0, 'basic': 80, 'premium': 220}
-    service_rate = _num(overrides.get('service_rate'), base_rates.get(service, 300))
+    qty = _positive_quantity(specs.get('quantity'))
+    service_rate = _num(overrides.get('service_rate'), CUSTOM_SERVICE_RATES.get(service, 300))
     complexity = specs.get('complexity') or 'standard'
     width = _num(specs.get('width_mm'))
     height = _num(specs.get('height_mm'))
@@ -449,18 +494,18 @@ def calculate_custom_order_price(specs, overrides=None):
     area_cm2 = max(0, width * height / 100)
     volume_cm3 = max(0, width * height * depth / 1000)
     size_factor = max(1, (area_cm2 / 120) or (volume_cm3 / 80) or 1)
-    labor_hours = max(_num(specs.get('labor_hours'), 0), size_factor * complexity_mult.get(complexity, 1.35))
-    rush_multiplier = 1.0
-    days_left = _deadline_days(specs.get('deadline'))
-    if days_left is not None and days_left <= 3:
-        rush_multiplier = 1.35
-    elif days_left is not None and days_left <= 7:
-        rush_multiplier = 1.15
-    subtotal = (service_rate * labor_hours + finish_fee.get(specs.get('finish_level'), 80)) * qty * rush_multiplier
+    labor_hours = max(
+        _num(specs.get('labor_hours'), 0),
+        size_factor * CUSTOM_COMPLEXITY_MULTIPLIER.get(complexity, 1.35),
+    )
+    rush_multiplier = _rush_multiplier(specs.get('deadline'))
+    finish_fee = CUSTOM_FINISH_FEES.get(specs.get('finish_level'), 80)
+    subtotal = (service_rate * labor_hours + finish_fee) * qty * rush_multiplier
     minimum = _num(overrides.get('minimum'), 250)
     discount = _num(overrides.get('discount'), 0)
     amount = max(minimum, subtotal - discount)
     deposit_percent = _num(overrides.get('deposit_percent'), 50)
+    deposit_amount, balance_amount = _split_amount(amount, deposit_percent)
     gaps = []
     if not specs.get('service_type'):
         gaps.append('ยังไม่ได้เลือกประเภทงาน')
@@ -474,8 +519,8 @@ def calculate_custom_order_price(specs, overrides=None):
         'rush_multiplier': rush_multiplier, 'subtotal': round(subtotal, 2),
         'discount': round(discount, 2), 'amount': round(amount, 2),
         'deposit_percent': deposit_percent,
-        'deposit_amount': round(amount * deposit_percent / 100, 2),
-        'balance_amount': round(amount - (amount * deposit_percent / 100), 2),
+        'deposit_amount': deposit_amount,
+        'balance_amount': balance_amount,
         'confidence': 'medium' if not gaps else 'low',
         'pricing_gaps': gaps,
     }
@@ -501,19 +546,41 @@ def optimize_image(path, max_size=(1600, 1600), thumb=False):
     except Exception:
         pass
 
+def upload_storage_path_for(folder, filename):
+    path = os.path.join(folder, filename)
+    return os.path.relpath(path, UPLOAD_FOLDER).replace('\\', '/')
+
+def sync_local_upload_to_storage(path, content_type=None):
+    if not storage_enabled():
+        return None
+    storage_path = os.path.relpath(path, UPLOAD_FOLDER).replace('\\', '/')
+    return upload_storage_path(storage_path, path, content_type or mimetypes.guess_type(path)[0] or 'application/octet-stream')
+
+def save_uploaded_file(file, folder, filename):
+    path = os.path.join(folder, filename)
+    os.makedirs(os.path.dirname(path), exist_ok=True)
+    file.save(path)
+    sync_local_upload_to_storage(path, getattr(file, 'mimetype', None))
+    return path
+
 def save_optimized_upload(file, folder, filename):
     path = os.path.join(folder, filename)
     file.save(path)
     optimize_image(path)
+    sync_local_upload_to_storage(path, getattr(file, 'mimetype', None))
     base, ext = os.path.splitext(filename)
     thumb_name = f'{base}_thumb{ext}'
     thumb_path = os.path.join(folder, thumb_name)
     try:
         shutil.copyfile(path, thumb_path)
         optimize_image(thumb_path, thumb=True)
+        sync_local_upload_to_storage(thumb_path, mimetypes.guess_type(thumb_path)[0] or getattr(file, 'mimetype', None))
     except Exception:
         thumb_name = ''
     return filename, thumb_name
+
+def upload_archive_name(path):
+    return os.path.join('uploads', os.path.relpath(path, UPLOAD_FOLDER)).replace('\\', '/')
 
 def create_backup_zip(auto=False):
     stamp = datetime.now().strftime('%Y%m%d_%H%M')
@@ -525,8 +592,33 @@ def create_backup_zip(auto=False):
         for root, _, files in os.walk(UPLOAD_FOLDER):
             for fn in files:
                 fp = os.path.join(root, fn)
-                z.write(fp, os.path.relpath(fp, PROJECT_DIR))
+                z.write(fp, upload_archive_name(fp))
     return path
+
+def export_data_bundle(include_uploads=False):
+    stamp = datetime.now().strftime('%Y%m%d_%H%M')
+    payload = {
+        'exported_at': _now(),
+        'app': 'zerphyrus',
+        'files': {},
+    }
+    for name in DATA_EXPORT_FILES:
+        payload['files'][name] = _r(name, None)
+    if not include_uploads:
+        return payload
+
+    archive = _io.BytesIO()
+    with zipfile.ZipFile(archive, 'w', zipfile.ZIP_DEFLATED) as z:
+        z.writestr('zerphyrus_data.json', json.dumps(payload, ensure_ascii=False, indent=2))
+        for name in DATA_EXPORT_FILES:
+            if os.path.exists(name):
+                z.write(name, name)
+        for root, _, files in os.walk(UPLOAD_FOLDER):
+            for fn in files:
+                fp = os.path.join(root, fn)
+                z.write(fp, upload_archive_name(fp))
+    archive.seek(0)
+    return stamp, archive.getvalue()
 
 def maybe_auto_backup():
     today = date.today().isoformat()
@@ -658,6 +750,9 @@ def allowed_file(filename):
 # ── FIX 2: get_qr_image returns correct subpath 'qr/promptpay.ext' ────────────
 def get_qr_image():
     """Return 'qr/promptpay.ext' for URL use — file lives at uploads/qr/."""
+    configured = os.environ.get('PROMPTPAY_QR_IMAGE', '').strip()
+    if configured:
+        return configured
     for ext in ALLOWED_IMG:
         path = os.path.join(QR_FOLDER, f'promptpay.{ext}')
         if os.path.exists(path):
@@ -705,6 +800,33 @@ def slips_for_task(task_id):
 
 def pending_slips_count():
     return sum(1 for ts in read_slips().values() for s in ts if s.get('status')=='pending')
+
+def payment_amount_for_task(task, requested_amount=None, pay_part=''):
+    if requested_amount is not None:
+        return requested_amount
+    quote = task.get('quote', {})
+    if quote.get('status') != 'approved':
+        return None
+    if pay_part == 'balance':
+        return quote.get('balance_amount') or quote.get('amount')
+    return quote.get('deposit_amount') or quote.get('amount')
+
+def uploaded_task_files(task):
+    files = task.get('specs_3d', {}).get('files', []) or task.get('specs_custom', {}).get('reference_files', [])
+    folder = MODEL_3D_FOLDER if task.get('specs_3d') else CUSTOM_ORDER_FOLDER
+    url_part = '3d_models' if task.get('specs_3d') else 'custom_orders'
+    rows = []
+    for sf in files:
+        fname = sf.get('filename', '')
+        path = os.path.join(folder, fname)
+        exists = os.path.exists(path)
+        rows.append({
+            **sf,
+            'url': f'/uploads/{url_part}/{fname}',
+            'exists': exists,
+            'size': os.path.getsize(path) if exists else 0,
+        })
+    return rows
 
 def get_webhook_url():
     base = request.url_root.rstrip('/')
@@ -766,7 +888,7 @@ def submit_order():
             ext = f.filename.rsplit('.', 1)[-1].lower()
             if ext in ALLOWED_ORDER_FILES:
                 fname = f"{int(datetime.now().timestamp()*1000)}_{uuid.uuid4().hex[:6]}.{ext}"
-                f.save(os.path.join(CUSTOM_ORDER_FOLDER, fname))
+                save_uploaded_file(f, CUSTOM_ORDER_FOLDER, fname)
                 saved_files.append({'filename': fname, 'original': f.filename, 'ext': ext, 'field': 'reference_files'})
 
     specs_custom = {
@@ -842,7 +964,7 @@ def model_submit():
             allowed = ALLOWED_3D if fkey == 'model_file' else ALLOWED_IMG
             if ext in allowed:
                 fname = str(int(datetime.now().timestamp()*1000)) + '_' + fkey + '.' + ext
-                f.save(os.path.join(MODEL_3D_FOLDER, fname))
+                save_uploaded_file(f, MODEL_3D_FOLDER, fname)
                 saved_files.append({'field': fkey, 'filename': fname, 'original': f.filename, 'ext': ext})
 
     specs_3d = {
@@ -948,7 +1070,29 @@ def tracking():
 
 @app.route('/uploads/<path:filename>')
 def uploaded_file(filename):
-    return send_from_directory(UPLOAD_FOLDER, filename)
+    local_path = os.path.join(UPLOAD_FOLDER, filename)
+    if os.path.exists(local_path):
+        return send_from_directory(UPLOAD_FOLDER, filename)
+    if storage_enabled():
+        url = storage_public_url(filename)
+        if os.environ.get('SUPABASE_STORAGE_PUBLIC', '0') == '1' and url:
+            return redirect(url)
+        data = download_storage_bytes(filename)
+        if data is not None:
+            resp = make_response(data)
+            resp.headers['Content-Type'] = mimetypes.guess_type(filename)[0] or 'application/octet-stream'
+            return resp
+    abort(404)
+
+@app.route('/healthz')
+@app.route('/health')
+def healthcheck():
+    return jsonify({
+        'status': 'ok',
+        'app': 'zerphyrus',
+        'pdf_enabled': PDF_ENABLED,
+        'line_enabled': LINE_ENABLED,
+    })
 
 # ── FIX 4: payment() — pass slips= (full list) instead of slip= (single) ──────
 @app.route('/payment/<task_id>')
@@ -956,14 +1100,11 @@ def payment(task_id):
     tasks = read_tasks(); task = next((t for t in tasks if t['id'] == task_id), None)
     if not task: return 'ไม่พบออเดอร์', 404
     tickets = read_tickets(); code = next((c for c,tk in tickets.items() if tk['task_id']==task_id), '')
-    amount = request.args.get('amount', type=float)
-    pay_part = request.args.get('part', '')
-    quote = task.get('quote', {})
-    if amount is None and quote.get('status') == 'approved':
-        if pay_part == 'balance':
-            amount = quote.get('balance_amount') or quote.get('amount')
-        else:
-            amount = quote.get('deposit_amount') or quote.get('amount')
+    amount = payment_amount_for_task(
+        task,
+        request.args.get('amount', type=float),
+        request.args.get('part', ''),
+    )
     qr_image = get_qr_image()
     payload = generate_promptpay_payload(PROMPTPAY_PHONE, amount) if not qr_image else ''
     return render_template('payment.html', task=task, ticket_code=code,
@@ -981,7 +1122,7 @@ def upload_slip(task_id):
     if not allowed_file(file.filename): return redirect(url_for('payment', task_id=task_id)+'?error=bad_type')
     ext = file.filename.rsplit('.',1)[1].lower()
     fname = f"{task_id}_{int(datetime.now().timestamp())}.{ext}"
-    file.save(os.path.join(SLIP_FOLDER, fname))
+    save_uploaded_file(file, SLIP_FOLDER, fname)
     slips = read_slips()
     slips.setdefault(task_id, []).append({'file': f'slips/{fname}', 'uploaded_at': datetime.now().isoformat(),
                                            'status': 'pending', 'note': '', 'amount': request.form.get('amount','')})
@@ -1282,6 +1423,24 @@ def admin_backup():
     resp.headers['Content-Disposition'] = f'attachment; filename="zerphyrus_backup_{datetime.now().strftime("%Y%m%d_%H%M")}.zip"'
     return resp
 
+@app.route('/admin/export_data.json')
+@admin_required
+def admin_export_data_json():
+    stamp = datetime.now().strftime('%Y%m%d_%H%M')
+    resp = make_response(json.dumps(export_data_bundle(), ensure_ascii=False, indent=2))
+    resp.headers['Content-Type'] = 'application/json; charset=utf-8'
+    resp.headers['Content-Disposition'] = f'attachment; filename="zerphyrus_data_{stamp}.json"'
+    return resp
+
+@app.route('/admin/export_data.zip')
+@admin_required
+def admin_export_data_zip():
+    stamp, data = export_data_bundle(include_uploads=True)
+    resp = make_response(data)
+    resp.headers['Content-Type'] = 'application/zip'
+    resp.headers['Content-Disposition'] = f'attachment; filename="zerphyrus_data_{stamp}.zip"'
+    return resp
+
 @app.route('/admin/restore', methods=['POST'])
 @admin_required
 def admin_restore():
@@ -1363,7 +1522,7 @@ def admin_gallery_add():
         fname = f"{int(datetime.now().timestamp())}_{secure_filename(file.filename)}"
         if not fname.lower().endswith('.' + ext):
             fname += '.' + ext
-        file.save(os.path.join(GALLERY_FOLDER, fname))
+        save_uploaded_file(file, GALLERY_FOLDER, fname)
         image_path = f'gallery/{fname}'
     if not image_path:
         return jsonify({'status':'error','error':'image required'}), 400
@@ -1397,8 +1556,9 @@ def upload_qr():
     for ext in ALLOWED_IMG:
         old = os.path.join(QR_FOLDER, f'promptpay.{ext}')
         if os.path.exists(old): os.remove(old)
+        delete_storage_object(f'qr/promptpay.{ext}')
     ext = file.filename.rsplit('.',1)[1].lower()
-    file.save(os.path.join(QR_FOLDER, f'promptpay.{ext}'))
+    save_uploaded_file(file, QR_FOLDER, f'promptpay.{ext}')
     if wants_json:
         return jsonify({'status': 'ok', 'qr_image': f'qr/promptpay.{ext}'})
     return redirect(url_for('line_config')+'?qr_saved=1')
@@ -1702,6 +1862,8 @@ def admin_product_delete(pid):
     for ext in ALLOWED_IMG:
         path = os.path.join(PRODUCT_IMG_FOLDER, f'{pid}.{ext}')
         if os.path.exists(path): os.remove(path)
+        delete_storage_object(f'products/{pid}.{ext}')
+        delete_storage_object(f'products/{pid}_thumb.{ext}')
     return jsonify({'status':'ok'})
 
 @app.route('/admin/products/toggle/<pid>', methods=['POST'])
@@ -1762,21 +1924,7 @@ def admin_task_files(task_id):
     tasks = read_tasks()
     task  = next((t for t in tasks if t['id'] == task_id), None)
     if not task: return jsonify({'error': 'not found'}), 404
-    files = task.get('specs_3d', {}).get('files', []) or task.get('specs_custom', {}).get('reference_files', [])
-    folder = MODEL_3D_FOLDER if task.get('specs_3d') else CUSTOM_ORDER_FOLDER
-    url_part = '3d_models' if task.get('specs_3d') else 'custom_orders'
-    # Build URLs
-    file_list = []
-    for sf in files:
-        fname = sf.get('filename', '')
-        path  = os.path.join(folder, fname)
-        file_list.append({
-            **sf,
-            'url':    f'/uploads/{url_part}/{fname}',
-            'exists': os.path.exists(path),
-            'size':   os.path.getsize(path) if os.path.exists(path) else 0,
-        })
-    return jsonify({'task_id': task_id, 'title': task.get('title',''), 'files': file_list})
+    return jsonify({'task_id': task_id, 'title': task.get('title',''), 'files': uploaded_task_files(task)})
 
 # ── Customer Accounts ──────────────────────────────────────────────────────────
 def read_customers():  return _r('customers.json', {})
@@ -1905,5 +2053,5 @@ if __name__ == '__main__':
                 if '=' in line and not line.startswith('#'):
                     k, v = line.strip().split('=', 1)
                     os.environ.setdefault(k, v)
-    app.run(debug=True, port=5000)
+    app.run(debug=os.environ.get('FLASK_DEBUG', '0') == '1', port=int(os.environ.get('PORT', '5000')))
 

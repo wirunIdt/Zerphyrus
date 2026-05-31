@@ -28,6 +28,7 @@ htmlcov/
 .coverage
 .coverage.*
 .pytest_cache/
+migration_report.json
 
 # Type checkers
 .mypy_cache/

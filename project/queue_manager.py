@@ -2,6 +2,8 @@ import json, os
 from datetime import datetime, date, timedelta
 from collections import defaultdict
 
+from data_store import init_data, read_data, write_data
+
 QUEUE_FILE    = 'queue.json'
 CALENDAR_FILE = 'work_calendar.json'
 
@@ -10,19 +12,14 @@ DEFAULT_CAL   = {'work_days_of_week': [0,1,2,3,4], 'capacity_per_day': 3, 'custo
 
 def _init_files():
     for path, default in [(QUEUE_FILE, DEFAULT_QUEUE), (CALENDAR_FILE, DEFAULT_CAL)]:
-        if not os.path.exists(path):
-            with open(path, 'w', encoding='utf-8') as f:
-                json.dump(default, f, ensure_ascii=False, indent=2)
+        init_data(path, default)
 _init_files()
 
 def _r(path, default):
-    try:
-        with open(path, 'r', encoding='utf-8') as f: return json.load(f)
-    except: return default
+    return read_data(path, default)
 
 def _w(path, data):
-    with open(path, 'w', encoding='utf-8') as f:
-        json.dump(data, f, ensure_ascii=False, indent=2)
+    write_data(path, data)
 
 def read_calendar():  return _r(CALENDAR_FILE, DEFAULT_CAL)
 def write_calendar(d): _w(CALENDAR_FILE, d)
