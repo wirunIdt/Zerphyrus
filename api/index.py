@@ -2,6 +2,9 @@ import os
 import sys
 from pathlib import Path
 
+from flask import Flask, Response, jsonify, request
+from werkzeug.wrappers import Response as WerkzeugResponse
+
 
 BASE_DIR = Path(__file__).resolve().parents[1]
 PROJECT_DIR = BASE_DIR / "project"
@@ -11,27 +14,36 @@ if str(PROJECT_DIR) not in sys.path:
 
 os.chdir(BASE_DIR)
 
-_app = None
+app = Flask(__name__)
+_main_app = None
 
 
-def _load_app():
-    global _app
-    if _app is None:
-        from app import app as flask_app  # noqa: E402
+def load_main_app():
+    global _main_app
+    if _main_app is None:
+        from app import app as flask_app
 
-        _app = flask_app
-    return _app
-
-
-def handler(environ, start_response):
-    if environ.get("PATH_INFO") in {"/healthz", "/health"}:
-        body = b'{"status":"ok","app":"zerphyrus","entrypoint":"vercel"}'
-        start_response("200 OK", [
-            ("Content-Type", "application/json"),
-            ("Content-Length", str(len(body))),
-        ])
-        return [body]
-    return _load_app()(environ, start_response)
+        _main_app = flask_app
+    return _main_app
 
 
-app = handler
+@app.get("/healthz")
+@app.get("/health")
+def healthcheck():
+    return jsonify(status="ok", app="zerphyrus", entrypoint="vercel")
+
+
+@app.route("/", defaults={"path": ""}, methods=["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"])
+@app.route("/<path:path>", methods=["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"])
+def proxy_to_main_app(path):
+    try:
+        main_app = load_main_app()
+        return WerkzeugResponse.from_app(main_app.wsgi_app, request.environ)
+    except Exception as exc:
+        body = {
+            "status": "error",
+            "app": "zerphyrus",
+            "error": type(exc).__name__,
+            "message": str(exc),
+        }
+        return Response(jsonify(body).get_data(), status=500, content_type="application/json")
