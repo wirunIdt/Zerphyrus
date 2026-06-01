@@ -30,7 +30,18 @@ def load_main_app():
 @app.get("/healthz")
 @app.get("/health")
 def healthcheck():
-    return jsonify(status="ok", app="zerphyrus", entrypoint="vercel")
+    try:
+        main_app = load_main_app()
+        return WerkzeugResponse.from_app(main_app.wsgi_app, request.environ)
+    except Exception as exc:
+        body = {
+            "status": "error",
+            "app": "zerphyrus",
+            "entrypoint": "vercel",
+            "error": type(exc).__name__,
+            "message": str(exc),
+        }
+        return Response(jsonify(body).get_data(), status=500, content_type="application/json")
 
 
 @app.route("/", defaults={"path": ""}, methods=["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"])
