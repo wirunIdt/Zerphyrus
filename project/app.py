@@ -200,33 +200,39 @@ def _r(p, default):
 def _w(p, data):
     write_data(p, data)
 
-read_tasks    = lambda: _r('tasks.json', [])
+def _as_list(value, default=None):
+    return value if isinstance(value, list) else (default if default is not None else [])
+
+def _as_dict(value, default=None):
+    return value if isinstance(value, dict) else (default if default is not None else {})
+
+read_tasks    = lambda: _as_list(_r('tasks.json', []))
 write_tasks   = lambda d: _w('tasks.json', d)
-read_users    = lambda: _r('users.json', {'admin': 'admin123'})
+read_users    = lambda: _as_dict(_r('users.json', {'admin': 'admin123'}), {'admin': 'admin123'})
 write_users   = lambda d: _w('users.json', d)
-read_stamps   = lambda: _r('stamps.json', {})
+read_stamps   = lambda: _as_dict(_r('stamps.json', {}))
 write_stamps  = lambda d: _w('stamps.json', d)
-read_tickets  = lambda: _r('tickets.json', {})
+read_tickets  = lambda: _as_dict(_r('tickets.json', {}))
 write_tickets = lambda d: _w('tickets.json', d)
-read_slips    = lambda: _r('slips.json', {})
+read_slips    = lambda: _as_dict(_r('slips.json', {}))
 write_slips   = lambda d: _w('slips.json', d)
-read_products = lambda: _r('products.json', [])
+read_products = lambda: _as_list(_r('products.json', []))
 write_products= lambda d: _w('products.json', d)
-read_todos    = lambda: _r('todos.json', [])
+read_todos    = lambda: _as_list(_r('todos.json', []))
 write_todos   = lambda d: _w('todos.json', d)
-read_events   = lambda: _r('events.json', [])
+read_events   = lambda: _as_list(_r('events.json', []))
 write_events  = lambda d: _w('events.json', d)
-read_notifications  = lambda: _r('notifications.json', [])
+read_notifications  = lambda: _as_list(_r('notifications.json', []))
 write_notifications = lambda d: _w('notifications.json', d)
-read_gallery  = lambda: _r('gallery.json', [])
+read_gallery  = lambda: _as_list(_r('gallery.json', []))
 write_gallery = lambda d: _w('gallery.json', d)
-read_reviews  = lambda: _r('reviews.json', [])
+read_reviews  = lambda: _as_list(_r('reviews.json', []))
 write_reviews = lambda d: _w('reviews.json', d)
-read_coupons  = lambda: _r('coupons.json', [])
+read_coupons  = lambda: _as_list(_r('coupons.json', []))
 write_coupons = lambda d: _w('coupons.json', d)
-read_invoices = lambda: _r('invoices.json', {'last_no': 0, 'items': {}})
+read_invoices = lambda: _as_dict(_r('invoices.json', {'last_no': 0, 'items': {}}), {'last_no': 0, 'items': {}})
 write_invoices= lambda d: _w('invoices.json', d)
-read_sn       = lambda: _r('sn_counter.json', {'last_sn': 0})
+read_sn       = lambda: _as_dict(_r('sn_counter.json', {'last_sn': 0}), {'last_sn': 0})
 write_sn      = lambda d: _w('sn_counter.json', d)
 
 DATA_EXPORT_FILES = [
@@ -249,6 +255,40 @@ DATA_EXPORT_FILES = [
     'queue.json',
     'work_calendar.json',
 ]
+
+EXPECTED_DATA_SHAPES = {
+    'tasks.json': list,
+    'users.json': dict,
+    'stamps.json': dict,
+    'tickets.json': dict,
+    'slips.json': dict,
+    'products.json': list,
+    'orders_cart.json': dict,
+    'sn_counter.json': dict,
+    'todos.json': list,
+    'events.json': list,
+    'notifications.json': list,
+    'gallery.json': list,
+    'reviews.json': list,
+    'coupons.json': list,
+    'invoices.json': dict,
+    'customers.json': dict,
+    'queue.json': dict,
+    'work_calendar.json': dict,
+}
+
+def data_shape_report():
+    report = {}
+    for name, expected in EXPECTED_DATA_SHAPES.items():
+        data = _r(name, None)
+        ok = isinstance(data, expected)
+        report[name] = {
+            'ok': ok,
+            'expected': expected.__name__,
+            'actual': type(data).__name__,
+            'records': len(data) if isinstance(data, (list, dict)) else 0,
+        }
+    return report
 
 STATUS_FLOW = ['pending', 'quoted', 'approved', 'inprogress', 'printing', 'postprocessing', 'qc', 'ready', 'delivered', 'completed', 'cancelled']
 STATUS_LABELS = {
@@ -779,12 +819,18 @@ def create_ticket(task):
 
 def build_analytics(tasks):
     sc = defaultdict(int); pc = defaultdict(int)
-    for t in tasks: sc[t['status']] += 1; pc[t.get('priority','medium')] += 1
+    valid_tasks = [t for t in tasks if isinstance(t, dict)]
+    for t in valid_tasks:
+        sc[t.get('status', 'pending')] += 1
+        pc[t.get('priority','medium')] += 1
     today = date.today()
     days = [(today - timedelta(days=i)).isoformat() for i in range(13,-1,-1)]
     dc = defaultdict(int)
-    for t in tasks: dc[t['createdAt'][:10]] += 1
-    n = len(tasks); c = sc.get('completed', 0)
+    for t in valid_tasks:
+        created = t.get('createdAt', '')
+        if created:
+            dc[created[:10]] += 1
+    n = len(valid_tasks); c = sc.get('completed', 0)
     return {
         'status_labels': ['รอดำเนินการ','กำลังทำ','เสร็จสิ้น','ยกเลิก'],
         'status_values': [sc.get(k,0) for k in ['pending','inprogress','completed','cancelled']],
@@ -843,19 +889,21 @@ def admin_context(tasks_override=None):
     all_tasks = read_tasks(); tasks = tasks_override if tasks_override is not None else all_tasks
     stamps = read_stamps(); tickets = read_tickets(); cal = read_calendar()
     yr = date.today().year; slips = read_slips()
-    tasks_with_slip = [{**t, 'slip': slip_status_for_task(t['id'])} for t in tasks]
+    tasks_with_slip = [{**t, 'slip': slip_status_for_task(t.get('id', ''))} for t in tasks if isinstance(t, dict)]
+    stamp_rows = [v for v in stamps.values() if isinstance(v, dict)]
+    ticket_rows = [v for v in tickets.values() if isinstance(v, dict)]
     return dict(
         tasks=tasks_with_slip, username=session.get('username',''),
-        stats={'total': len(all_tasks), 'pending': sum(1 for t in all_tasks if t['status']=='pending'),
-               'inprogress': sum(1 for t in all_tasks if t['status']=='inprogress'),
-               'completed': sum(1 for t in all_tasks if t['status']=='completed')},
+        stats={'total': len(all_tasks), 'pending': sum(1 for t in all_tasks if isinstance(t, dict) and t.get('status')=='pending'),
+               'inprogress': sum(1 for t in all_tasks if isinstance(t, dict) and t.get('status')=='inprogress'),
+               'completed': sum(1 for t in all_tasks if isinstance(t, dict) and t.get('status')=='completed')},
         analytics=build_analytics(all_tasks),
         stamps=stamps,
-        stamp_stats={'total_customers': len(stamps), 'total_stamps': sum(v['stamps'] for v in stamps.values()),
-                     'total_redeemed': sum(v['rewards_redeemed'] for v in stamps.values())},
+        stamp_stats={'total_customers': len(stamps), 'total_stamps': sum(_int(v.get('stamps')) for v in stamp_rows),
+                     'total_redeemed': sum(_int(v.get('rewards_redeemed')) for v in stamp_rows)},
         tickets=tickets,
-        ticket_stats={'total': len(tickets), 'active': sum(1 for t in tickets.values() if t['status']=='active'),
-                      'checked_in': sum(1 for t in tickets.values() if t['status']=='checked_in')},
+        ticket_stats={'total': len(tickets), 'active': sum(1 for t in ticket_rows if t.get('status')=='active'),
+                      'checked_in': sum(1 for t in ticket_rows if t.get('status')=='checked_in')},
         stamps_to_reward=STAMPS_TO_REWARD, promptpay_phone=PROMPTPAY_PHONE,
         calendar=cal, ya=yearly_analytics(all_tasks, yr, cal),
         queue_tasks=get_queue_with_tasks(all_tasks, cal),
@@ -1092,6 +1140,7 @@ def uploaded_file(filename):
 @app.route('/health')
 def healthcheck():
     store = get_store()
+    shapes = data_shape_report()
     return jsonify({
         'status': 'ok',
         'app': 'zerphyrus',
@@ -1102,6 +1151,8 @@ def healthcheck():
         'supabase_configured': bool(os.environ.get('SUPABASE_URL')),
         'supabase_service_role_configured': bool(os.environ.get('SUPABASE_SERVICE_ROLE_KEY')),
         'users_configured': bool(read_users()),
+        'invalid_data_files': [name for name, meta in shapes.items() if not meta['ok']],
+        'data_shapes': shapes,
     })
 
 # ── FIX 4: payment() — pass slips= (full list) instead of slip= (single) ──────

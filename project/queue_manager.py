@@ -21,7 +21,10 @@ def _r(path, default):
 def _w(path, data):
     write_data(path, data)
 
-def read_calendar():  return _r(CALENDAR_FILE, DEFAULT_CAL)
+def _as_dict(value, default):
+    return value if isinstance(value, dict) else default.copy()
+
+def read_calendar():  return _as_dict(_r(CALENDAR_FILE, DEFAULT_CAL), DEFAULT_CAL)
 def write_calendar(d): _w(CALENDAR_FILE, d)
 
 def is_working_day(d: date, cal: dict = None) -> bool:
@@ -56,17 +59,20 @@ def remove_custom_date(date_str):
 def update_calendar_settings(work_days, capacity):
     cal = read_calendar(); cal['work_days_of_week'] = work_days; cal['capacity_per_day'] = capacity; write_calendar(cal)
 
-def read_queue():  return _r(QUEUE_FILE, DEFAULT_QUEUE)
+def read_queue():  return _as_dict(_r(QUEUE_FILE, DEFAULT_QUEUE), DEFAULT_QUEUE)
 def write_queue(d): _w(QUEUE_FILE, d)
 
 PRIORITY_WEIGHT = {'high': 1, 'medium': 2, 'low': 3}
 
 def sync_queue(tasks):
     q = read_queue()
-    active_ids = {t['id'] for t in tasks if t['status'] in ('pending','inprogress')}
+    valid_tasks = [t for t in tasks if isinstance(t, dict) and t.get('id')]
+    active_ids = {t['id'] for t in valid_tasks if t.get('status') in ('pending','inprogress')}
+    q.setdefault('order', [])
+    q.setdefault('estimates', {})
     q['order'] = [tid for tid in q['order'] if tid in active_ids]
     existing = set(q['order'])
-    new_tasks = sorted([t for t in tasks if t['id'] not in existing and t['status'] in ('pending','inprogress')],
+    new_tasks = sorted([t for t in valid_tasks if t['id'] not in existing and t.get('status') in ('pending','inprogress')],
                        key=lambda t: (PRIORITY_WEIGHT.get(t.get('priority','medium'), 2), t.get('createdAt','')))
     q['order'].extend(t['id'] for t in new_tasks)
     write_queue(q); return q
@@ -107,13 +113,18 @@ def yearly_analytics(tasks, year=None, cal=None):
     if year is None: year = date.today().year
     if cal is None: cal = read_calendar()
     capacity_per_day = cal.get('capacity_per_day', 3)
-    created_this_year   = [t for t in tasks if t.get('createdAt','')[:4] == str(year)]
-    completed_this_year = [t for t in tasks if t.get('status')=='completed' and t.get('updatedAt','')[:4]==str(year)]
+    valid_tasks = [t for t in tasks if isinstance(t, dict)]
+    created_this_year   = [t for t in valid_tasks if t.get('createdAt','')[:4] == str(year)]
+    completed_this_year = [t for t in valid_tasks if t.get('status')=='completed' and t.get('updatedAt','')[:4]==str(year)]
     monthly_created = defaultdict(int); monthly_completed = defaultdict(int); monthly_cancelled = defaultdict(int)
-    for t in created_this_year: monthly_created[int(t['createdAt'][5:7])] += 1
-    for t in tasks:
-        if t.get('status')=='completed' and t.get('updatedAt','')[:4]==str(year): monthly_completed[int(t['updatedAt'][5:7])] += 1
-        if t.get('status')=='cancelled' and t.get('updatedAt','')[:4]==str(year): monthly_cancelled[int(t['updatedAt'][5:7])] += 1
+    for t in created_this_year:
+        if len(t.get('createdAt', '')) >= 7:
+            monthly_created[int(t['createdAt'][5:7])] += 1
+    for t in valid_tasks:
+        if t.get('status')=='completed' and t.get('updatedAt','')[:4]==str(year) and len(t.get('updatedAt','')) >= 7:
+            monthly_completed[int(t['updatedAt'][5:7])] += 1
+        if t.get('status')=='cancelled' and t.get('updatedAt','')[:4]==str(year) and len(t.get('updatedAt','')) >= 7:
+            monthly_cancelled[int(t['updatedAt'][5:7])] += 1
     months = list(range(1,13))
     monthly_workdays = {}; monthly_capacity = {}
     for m in months:
@@ -125,7 +136,7 @@ def yearly_analytics(tasks, year=None, cal=None):
         except: monthly_workdays[m] = monthly_capacity[m] = 0
     monthly_rate = {m: round(monthly_completed[m]/monthly_capacity[m]*100,1) if monthly_capacity[m] else 0 for m in months}
     lead_times = []
-    for t in tasks:
+    for t in valid_tasks:
         if t.get('status')=='completed':
             dc = _parse_date(t.get('createdAt','')); dd = _parse_date(t.get('updatedAt',''))
             if dc and dd and dd >= dc: lead_times.append((dd-dc).days)
@@ -136,7 +147,7 @@ def yearly_analytics(tasks, year=None, cal=None):
     ytd_completed = len(completed_this_year)
     ytd_rate = round(ytd_completed/total_capacity_ytd*100,1) if total_capacity_ytd else 0
     best_month = max(months, key=lambda m: monthly_completed[m])
-    all_years = sorted(set(int(t['createdAt'][:4]) for t in tasks if t.get('createdAt','')[:4].isdigit())) or [year]
+    all_years = sorted(set(int(t['createdAt'][:4]) for t in valid_tasks if t.get('createdAt','')[:4].isdigit())) or [year]
     return {
         'year': year, 'all_years': all_years, 'month_labels': MONTH_TH,
         'monthly_created': [monthly_created[m] for m in months],
@@ -146,7 +157,7 @@ def yearly_analytics(tasks, year=None, cal=None):
         'monthly_workdays': [monthly_workdays[m] for m in months],
         'monthly_rate': [monthly_rate[m] for m in months],
         'total_created': len(created_this_year), 'total_completed': ytd_completed,
-        'total_cancelled': len([t for t in tasks if t.get('status')=='cancelled' and t.get('updatedAt','')[:4]==str(year)]),
+        'total_cancelled': len([t for t in valid_tasks if t.get('status')=='cancelled' and t.get('updatedAt','')[:4]==str(year)]),
         'ytd_work_days': total_work_days_ytd, 'ytd_capacity': total_capacity_ytd, 'ytd_rate': ytd_rate,
         'avg_lead_days': avg_lead, 'max_lead_days': max_lead, 'min_lead_days': min(lead_times) if lead_times else 0,
         'best_month': MONTH_TH[best_month-1], 'capacity_per_day': capacity_per_day,
