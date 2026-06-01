@@ -53,7 +53,7 @@ def count_records(data):
 
 
 def migrate(dry_run=False):
-    store = None if dry_run else SupabaseKVStore()
+    store = None if dry_run else SupabaseKVStore(strict=True)
     report = {
         "started_at": datetime.now().isoformat(),
         "dry_run": dry_run,

@@ -61,11 +61,12 @@ class JsonDataStore:
 
 
 class SupabaseKVStore:
-    def __init__(self):
+    def __init__(self, strict=False):
         self.url = os.environ["SUPABASE_URL"].rstrip("/")
         self.key = os.environ.get("SUPABASE_SERVICE_ROLE_KEY") or os.environ["SUPABASE_ANON_KEY"]
         self.table = os.environ.get("SUPABASE_KV_TABLE", "zerphyrus_kv")
         self.timeout = int(os.environ.get("SUPABASE_TIMEOUT", "12"))
+        self.strict = strict
 
     @property
     def headers(self):
@@ -92,14 +93,20 @@ class SupabaseKVStore:
             return default
 
     def write(self, name, data):
-        resp = requests.post(
-            f"{self.url}/rest/v1/{self.table}",
-            headers={**self.headers, "Prefer": "resolution=merge-duplicates"},
-            params={"on_conflict": "name"},
-            json=[{"name": name, "data": data}],
-            timeout=self.timeout,
-        )
-        resp.raise_for_status()
+        try:
+            resp = requests.post(
+                f"{self.url}/rest/v1/{self.table}",
+                headers={**self.headers, "Prefer": "resolution=merge-duplicates"},
+                params={"on_conflict": "name"},
+                json=[{"name": name, "data": data}],
+                timeout=self.timeout,
+            )
+            resp.raise_for_status()
+            return True
+        except requests.RequestException:
+            if self.strict:
+                raise
+            return False
 
     def init_file(self, name, default):
         # On serverless hosts, app import must stay cheap and resilient.
