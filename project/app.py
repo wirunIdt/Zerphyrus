@@ -62,6 +62,8 @@ def _fix_env_encoding():
             with open(env_path, 'r', encoding=enc) as f: text = f.read()
             with open(env_path, 'w', encoding='utf-8') as f: f.write(text)
             break
+        except OSError:
+            return
         except (UnicodeDecodeError, LookupError): continue
 _fix_env_encoding()
 
