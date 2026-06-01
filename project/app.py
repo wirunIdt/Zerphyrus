@@ -53,6 +53,8 @@ except Exception:
 
 # ── FIX 7: Auto-fix .env encoding on startup (Windows cp1252 → UTF-8) ──────────
 def _fix_env_encoding():
+    if os.environ.get('VERCEL') or os.environ.get('SKIP_ENV_FILE_FIX') == '1':
+        return
     env_path = os.path.join(os.path.dirname(__file__), '.env')
     if not os.path.exists(env_path): return
     for enc in ('utf-8', 'utf-8-sig', 'cp1252', 'tis-620', 'latin-1'):
