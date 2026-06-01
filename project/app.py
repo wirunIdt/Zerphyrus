@@ -21,7 +21,7 @@ from flask import (Flask, render_template, request, redirect, url_for,
 from werkzeug.utils import secure_filename
 from werkzeug.security import generate_password_hash, check_password_hash
 
-from data_store import init_data, read_data, write_data
+from data_store import get_store, init_data, read_data, write_data
 from promptpay import generate_promptpay_payload
 from queue_manager import (
     read_queue, read_calendar, write_calendar,
@@ -1091,11 +1091,17 @@ def uploaded_file(filename):
 @app.route('/healthz')
 @app.route('/health')
 def healthcheck():
+    store = get_store()
     return jsonify({
         'status': 'ok',
         'app': 'zerphyrus',
         'pdf_enabled': PDF_ENABLED,
         'line_enabled': LINE_ENABLED,
+        'data_backend': os.environ.get('DATA_BACKEND', 'json'),
+        'store': store.__class__.__name__,
+        'supabase_configured': bool(os.environ.get('SUPABASE_URL')),
+        'supabase_service_role_configured': bool(os.environ.get('SUPABASE_SERVICE_ROLE_KEY')),
+        'users_configured': bool(read_users()),
     })
 
 # ── FIX 4: payment() — pass slips= (full list) instead of slip= (single) ──────
