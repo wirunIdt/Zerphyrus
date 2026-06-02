@@ -112,14 +112,13 @@
     <a href="/catalog" class="sb-item {% if active_page=='catalog' %}active{% endif %}"><span class="ic">🛍️</span><span data-th="สินค้า" data-en="Products">สินค้า</span>{% if cart_count and cart_count>0 %}<span class="sb-badge green">{{ cart_count }}</span>{% endif %}</a>
     <a href="/cart" class="sb-item {% if active_page=='cart' %}active{% endif %}"><span class="ic">🛒</span><span data-th="ตะกร้า" data-en="Cart">ตะกร้า</span>{% if cart_count and cart_count>0 %}<span class="sb-badge">{{ cart_count }}</span>{% endif %}</a>
     <a href="/contact" class="sb-item {% if active_page=='contact' %}active{% endif %}"><span class="ic">📬</span><span data-th="ติดต่อเรา" data-en="Contact Us">ติดต่อเรา</span></a>
-    <a href="/studio" class="sb-item"><span class="ic">🏛️</span><span data-th="หน้า Studio" data-en="Studio Page">หน้า Studio</span></a>
+    
     <div class="sb-sec" data-th="ออเดอร์" data-en="ORDERS">ออเดอร์</div>
     <a href="/" class="sb-item {% if active_page=='order' %}active{% endif %}"><span class="ic">📝</span><span data-th="สั่งงานใหม่" data-en="New Order">สั่งงานใหม่</span></a>
     <a href="/model" class="sb-item {% if active_page=='model' %}active{% endif %}"><span class="ic">🖨️</span><span data-th="สั่งงาน 3D" data-en="3D Order">สั่งงาน 3D</span></a>
     <a href="/tracking" class="sb-item {% if active_page=='tracking' %}active{% endif %}"><span class="ic">🔍</span><span data-th="ติดตามงาน" data-en="Track Order">ติดตามงาน</span></a>
     <a href="/checkin" class="sb-item {% if active_page=='checkin' %}active{% endif %}"><span class="ic">✅</span><span data-th="Check-in" data-en="Check-in">Check-in</span></a>
-    <a href="/extras/if-clause" class="sb-item"><span class="ic">📘</span><span data-th="If Clause Archive" data-en="If Clause Archive">If Clause Archive</span></a>
-
+    
     <div class="sb-sec" data-th="บัญชีลูกค้า" data-en="CUSTOMER">บัญชีลูกค้า</div>
     {% if session.customer_phone %}
     <a href="/customer/dashboard" class="sb-item {% if active_page=='customer_dash' %}active{% endif %}"><span class="ic">📦</span><span data-th="ออเดอร์ของฉัน" data-en="My Orders">ออเดอร์ของฉัน</span></a>
