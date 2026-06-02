@@ -1,5 +1,19 @@
 # Zerphyrus Timeline
 
+## Current Status (Latest - File Organization)
+
+- Date: 2026-06-02
+- Status: organized standalone HTML pages and linked them into the Flask main project.
+- Moved `C:\Jaochai\Zerphyrus\cpmpage.html` into `project/static_pages/studio_landing.html`.
+- Moved old `project/index.html` into `project/static_pages/if_clause_learning.html`.
+- Added `/studio` route for the Zerphyrus premium landing/showcase page.
+- Added `/extras/if-clause` route for the If Clause learning archive page.
+- Added both links to the main app sidebar.
+- Added `docs/FILE_ORGANIZATION.md` to explain what these files are for.
+- Verification:
+  - `python -m py_compile api\index.py wsgi.py project\app.py project\data_store.py project\queue_manager.py project\promptpay.py project\pdf_generator.py project\storage_backend.py tests\test_core.py`
+  - `python -m unittest discover -s tests -v`
+
 ## Current Status (Latest)
 
 - วันที่อัปเดตล่าสุด: 2026-06-02

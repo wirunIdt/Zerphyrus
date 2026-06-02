@@ -321,6 +321,15 @@ class FlaskRouteSmokeTests(unittest.TestCase):
                 response = self.client.get(path)
                 self.assertLess(response.status_code, 500)
 
+    def test_standalone_pages_are_linked_into_app(self):
+        studio = self.client.get("/studio", buffered=True)
+        self.assertEqual(studio.status_code, 200)
+        self.assertIn(b"Premium Manufacturing Studio", studio.data)
+
+        lesson = self.client.get("/extras/if-clause", buffered=True)
+        self.assertEqual(lesson.status_code, 200)
+        self.assertIn(b"If Clause", lesson.data)
+
     def test_healthcheck_reports_service_status(self):
         response = self.client.get("/healthz")
         self.assertEqual(response.status_code, 200)
@@ -417,10 +426,11 @@ class FlaskRouteSmokeTests(unittest.TestCase):
             "/admin/line_config", "/catalog", "/product/prod-1", "/cart", "/cart/checkout",
             "/admin/products", "/admin/export_excel", "/admin/spec_sheet/task-1",
             "/admin/task_files/task-1", "/customer/dashboard", "/customer/profile",
+            "/studio", "/extras/if-clause",
         ]
         for path in paths:
             with self.subTest(path=path):
-                response = self.client.get(path)
+                response = self.client.get(path, buffered=True)
                 self.assertLess(response.status_code, 500)
 
     def test_admin_export_data_routes_download_data(self):

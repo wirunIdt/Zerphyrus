@@ -76,6 +76,7 @@ app.wsgi_app = ProxyFix(app.wsgi_app, x_proto=1, x_host=1)
 
 PREFERRED_SCHEME = os.environ.get('PREFERRED_SCHEME', '')
 PROJECT_DIR      = os.path.dirname(os.path.abspath(__file__))
+STANDALONE_PAGE_FOLDER = os.path.join(PROJECT_DIR, 'static_pages')
 UPLOAD_FOLDER    = os.environ.get('UPLOAD_FOLDER') or ('/tmp/zerphyrus_uploads' if os.environ.get('VERCEL') else os.path.join(PROJECT_DIR, 'uploads'))
 QR_FOLDER        = os.path.join(UPLOAD_FOLDER, 'qr')
 SLIP_FOLDER      = os.path.join(UPLOAD_FOLDER, 'slips')
@@ -968,6 +969,14 @@ def admin_required(f):
 @app.route('/')
 def index():
     return render_template('order_form.html', active_page='order')
+
+@app.route('/studio')
+def studio_landing():
+    return send_from_directory(STANDALONE_PAGE_FOLDER, 'studio_landing.html')
+
+@app.route('/extras/if-clause')
+def if_clause_learning():
+    return send_from_directory(STANDALONE_PAGE_FOLDER, 'if_clause_learning.html')
 
 @app.route('/submit_order', methods=['POST'])
 def submit_order():

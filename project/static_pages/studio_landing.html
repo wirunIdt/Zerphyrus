@@ -1,0 +1,642 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>Zerphyrus — Premium 3D Printing & Custom Manufacturing Studio</title>
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&family=Anuphan:wght@300;400;500;600;700&family=Noto+Sans+SC:wght@300;400;500;700&display=swap" rel="stylesheet">
+<style>
+:root {
+  --bg-studio: #fbfbfa;
+  --bg-surface: #ffffff;
+  --text-dark: #09090b;
+  --text-muted: #52525b;
+  --text-dim: #a1a1aa;
+  --brand-blue: #2563eb;
+  --border-grid: 1px solid #e4e4e7;
+  --font-global: 'Plus Jakarta Sans', 'Anuphan', 'Noto Sans SC', sans-serif;
+  --transition-smooth: all 0.5s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+* { box-sizing: border-box; margin: 0; padding: 0; }
+html { scroll-behavior: smooth; background-color: var(--bg-studio); }
+
+body {
+  font-family: var(--font-global);
+  color: var(--text-dark);
+  overflow-x: hidden;
+  -webkit-font-smoothing: antialiased;
+}
+
+/* ===== FERRARI STYLE CINEMATIC INTRO ===== */
+#ferrariIntroOverlay {
+  position: fixed; inset: 0; z-index: 99999; display: flex; justify-content: center; align-items: center; background: #000000; overflow: hidden;
+}
+.intro-curtain {
+  position: absolute; width: 50%; height: 100%; bg: #000; background: #050505; transition: transform 1.1s cubic-bezier(0.85, 0, 0.15, 1);
+}
+.curtain-left { left: 0; transform-origin: left; border-right: 1px solid rgba(255,255,255,0.05); }
+.curtain-right { right: 0; transform-origin: right; border-left: 1px solid rgba(255,255,255,0.05); }
+
+.intro-content-cluster {
+  position: relative; z-index: 2; text-align: center; display: flex; flex-direction: column; align-items: center; gap: 24px;
+}
+.intro-logo-text {
+  font-size: clamp(32px, 6vw, 75px); font-weight: 800; color: #ffffff; letter-spacing: 12px; text-transform: uppercase;
+  opacity: 0; transform: scale(0.92); animation: luxuryFadeZoom 2.2s cubic-bezier(0.16, 1, 0.3, 1) forwards 0.3s;
+}
+.intro-laser-line {
+  width: 0px; height: 1px; background: linear-gradient(90deg, transparent, var(--brand-blue), #ffffff, var(--brand-blue), transparent);
+  animation: laserExpand 1.8s cubic-bezier(0.16, 1, 0.3, 1) forwards 0.6s;
+}
+.intro-sub-text {
+  font-size: 11px; font-weight: 500; color: #666666; letter-spacing: 4px; text-transform: uppercase;
+  opacity: 0; transform: translateY(10px); animation: textRiseUp 1.2s cubic-bezier(0.16, 1, 0.3, 1) forwards 1.2s;
+}
+
+/* Animations for Intro */
+@keyframes luxuryFadeZoom { to { opacity: 1; transform: scale(1); letter-spacing: 16px; } }
+@keyframes laserExpand { to { width: 280px; } }
+@keyframes textRiseUp { to { opacity: 1; transform: translateY(0); } }
+
+/* Trigger Intro Classes via JS */
+body.intro-running { overflow: hidden; }
+#ferrariIntroOverlay.shutdown .curtain-left { transform: scaleX(0); }
+#ferrariIntroOverlay.shutdown .curtain-right { transform: scaleX(0); }
+#ferrariIntroOverlay.shutdown .intro-content-cluster { opacity: 0; transform: translateY(-20px); transition: all 0.6s ease-in; }
+
+/* ===== LIGHTBOX ===== */
+#imageLightboxModal {
+  display: none; position: fixed; z-index: 20000; left: 0; top: 0; width: 100%; height: 100%;
+  background-color: rgba(255, 255, 255, 0.96); backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px); justify-content: center; align-items: center; cursor: zoom-out; padding: 20px;
+}
+#lightboxTargetImg {
+  display: block; max-height: 85vh; width: auto; max-width: 90vw; border-radius: 16px; box-shadow: 0 30px 70px rgba(0,0,0,0.12); object-fit: contain;
+}
+
+/* ===== SCROLL REVEAL ===== */
+.reveal-node { opacity: 0; transform: translateY(30px) scale(0.99); transition: var(--transition-smooth); }
+.reveal-node.activated { opacity: 1; transform: translateY(0) scale(1); }
+
+/* ===== NAVIGATION ===== */
+.studio-nav {
+  position: fixed; top: 0; left: 0; width: 100%; height: 90px;
+  background: rgba(251, 251, 250, 0.85); backdrop-filter: blur(24px); -webkit-backdrop-filter: blur(24px); border-bottom: var(--border-grid);
+  display: grid; grid-template-columns: 2fr 3fr 1.5fr; align-items: center; padding: 0 4%; z-index: 9999;
+}
+.nav-logo-box { display: flex; align-items: center; text-decoration: none; }
+.nav-logo-text { font-weight: 800; font-size: 24px; letter-spacing: 0.5px; text-transform: uppercase; color: var(--text-dark); }
+.nav-menu-links { display: flex; justify-content: center; gap: 24px; list-style: none; }
+.nav-menu-links a { text-decoration: none; color: var(--text-muted); font-size: 13px; font-weight: 600; text-transform: uppercase; letter-spacing: 1px; transition: color 0.3s; }
+.nav-menu-links a:hover { color: var(--text-dark); }
+
+.nav-action-wrapper { display: flex; justify-content: flex-end; align-items: center; gap: 20px; }
+.lang-selector-hub { display: flex; gap: 6px; background: #ececed; padding: 4px; border-radius: 100px; }
+.lang-btn { background: transparent; border: none; font-family: var(--font-global); font-size: 11px; font-weight: 700; padding: 6px 12px; border-radius: 100px; cursor: pointer; color: var(--text-muted); transition: all 0.2s ease; }
+.lang-btn.active { background: var(--bg-surface); color: var(--text-dark); box-shadow: 0 2px 8px rgba(0,0,0,0.06); }
+
+/* ===== HERO ===== */
+.hero-canvas { padding: 180px 4% 100px 4%; border-bottom: var(--border-grid); display: grid; grid-template-columns: 1.2fr 0.8fr; gap: 40px; }
+.hero-title-suite h1 { font-size: clamp(34px, 5.2vw, 70px); font-weight: 800; line-height: 0.95; letter-spacing: -2px; text-transform: uppercase; color: var(--text-dark); }
+.hero-title-suite span { color: var(--brand-blue); }
+.hero-brief-suite { display: flex; flex-direction: column; justify-content: flex-end; align-items: flex-start; }
+.hero-p { color: var(--text-muted); font-size: 15.5px; line-height: 1.7; margin-bottom: 24px; max-width: 460px; }
+.btn-studio-outline { display: inline-flex; align-items: center; padding: 14px 28px; border: 1px solid var(--text-dark); border-radius: 100px; background: transparent; color: var(--text-dark); font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 1px; text-decoration: none; transition: var(--transition-smooth); margin-right: 10px; }
+.btn-studio-outline:hover { background: var(--text-dark); color: #fff; transform: translateY(-2px); }
+.btn-studio-primary { display: inline-flex; align-items: center; padding: 14px 28px; background: var(--text-dark); border: 1px solid var(--text-dark); border-radius: 100px; color: #fff; font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 1px; text-decoration: none; transition: var(--transition-smooth); cursor: pointer;}
+.btn-studio-primary:hover { background: var(--brand-blue); border-color: var(--brand-blue); transform: translateY(-2px); }
+
+/* ===== MARQUEE ===== */
+.client-trust-bar { padding: 40px 0; background: var(--bg-surface); border-bottom: var(--border-grid); overflow: hidden; position: relative; width: 100%; }
+.client-marquee-track { display: flex; width: max-content; gap: 80px; align-items: center; animation: slideRight 30s linear infinite; font-size: 14px; font-weight: 700; letter-spacing: 2px; color: var(--text-dim); text-transform: uppercase; }
+@keyframes slideRight { 0% { transform: translateX(-30%); } 100% { transform: translateX(0); } }
+
+/* ===== SECTIONS ===== */
+.studio-section { padding: 100px 4%; border-bottom: var(--border-grid); }
+.section-header-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 40px; margin-bottom: 50px; }
+.section-tag { font-size: 11px; font-weight: 700; color: var(--brand-blue); text-transform: uppercase; letter-spacing: 2px; margin-bottom: 10px; display: block; }
+.section-title { font-size: clamp(28px, 3.5vw, 42px); font-weight: 700; letter-spacing: -1px; line-height: 1.15; text-transform: uppercase; }
+.section-desc-p { color: var(--text-muted); font-size: 16px; line-height: 1.7; }
+
+/* ===== GRID MATRICES ===== */
+.craft-layout-matrix { display: grid; grid-template-columns: 1fr 1fr; gap: 24px; }
+.craft-interactive-card { position: relative; border-radius: 24px; overflow: hidden; height: 420px; cursor: pointer; border: var(--border-grid); background: #f1f1ef; }
+.craft-photo-resource { width: 100%; height: 100%; object-fit: cover; transition: transform 0.7s cubic-bezier(0.16, 1, 0.3, 1); }
+.craft-interactive-card:hover .craft-photo-resource { transform: scale(1.03); }
+.craft-card-dimmer { position: absolute; bottom: 0; left: 0; width: 100%; padding: 32px; background: linear-gradient(transparent, rgba(9, 9, 11, 0.9)); color: #ffffff; }
+.craft-card-dimmer h3 { font-size: 22px; font-weight: 700; margin-bottom: 6px; }
+.craft-card-dimmer p { font-size: 14px; color: rgba(255,255,255,0.75); line-height: 1.5; }
+
+.services-grid-matrix { display: grid; grid-template-columns: repeat(3, 1fr); gap: 24px; }
+.service-spec-card { background: var(--bg-surface); border: var(--border-grid); border-radius: 20px; padding: 32px 24px; transition: var(--transition-smooth); }
+.service-spec-card:hover { transform: translateY(-5px); border-color: var(--text-dark); box-shadow: 0 15px 30px rgba(0,0,0,0.02); }
+.service-icon-frame { font-size: 28px; margin-bottom: 20px; color: var(--brand-blue); }
+.service-meta h3 { font-size: 19px; font-weight: 700; margin-bottom: 8px; text-transform: uppercase; }
+.service-meta p { color: var(--text-muted); font-size: 14px; line-height: 1.6; }
+
+/* ===== CATALOG & DYNAMIC SHOPPING CART ===== */
+.filter-hub-bar { display: flex; gap: 8px; margin-bottom: 40px; border-bottom: var(--border-grid); padding-bottom: 12px; }
+.filter-hub-btn { padding: 10px 24px; border: 1px solid transparent; background: transparent; color: var(--text-muted); border-radius: 100px; font-size: 13px; font-weight: 600; text-transform: uppercase; cursor: pointer; transition: all 0.2s ease; }
+.filter-hub-btn.is-active { background: var(--text-dark); color: #fff; }
+
+.gallery-grid-matrix { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 24px; }
+.gallery-card { background: var(--bg-surface); border: var(--border-grid); border-radius: 20px; padding: 16px; display: flex; flex-direction: column; gap: 16px; transition: var(--transition-smooth); }
+.gallery-media-canvas { width: 100%; height: 240px; background: #f3f3f1; border-radius: 12px; overflow: hidden; border: var(--border-grid); cursor: zoom-in; }
+.gallery-media-canvas img { width: 100%; height: 100%; object-fit: cover; }
+.gallery-info-suite { display: flex; justify-content: space-between; align-items: center; }
+.gallery-item-title { font-size: 16px; font-weight: 700; }
+.gallery-action-box { display: flex; justify-content: space-between; align-items: center; margin-top: 4px; }
+.gallery-price { font-weight: 700; color: var(--brand-blue); font-size: 15px; }
+.btn-add-cart { background: var(--text-dark); color: white; border: none; padding: 8px 16px; border-radius: 100px; font-size: 11px; font-weight: 700; cursor: pointer; text-transform: uppercase; transition: var(--transition-smooth); }
+.btn-add-cart:hover { background: var(--brand-blue); }
+
+/* ===== CART EXPANSION CARD ===== */
+.cart-preview-sticky-box { background: var(--bg-surface); border: var(--border-grid); border-radius: 20px; padding: 24px; max-width: 400px; margin: 40px auto 0 auto; }
+.cart-items-list { list-style: none; margin: 16px 0; display: flex; flex-direction: column; gap: 12px; font-size: 14px; }
+.cart-item-row { display: flex; justify-content: space-between; border-bottom: 1px dashed #e4e4e7; padding-bottom: 8px; }
+
+/* ===== ORDER FORM & INPUTS ===== */
+.form-container-card { background: var(--bg-surface); border: var(--border-grid); border-radius: 24px; padding: 40px; max-width: 800px; margin: 0 auto; }
+.form-grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 24px; margin-bottom: 24px; }
+.form-group { display: flex; flex-direction: column; gap: 8px; margin-bottom: 20px; }
+.form-group label { font-size: 12px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px; color: var(--text-dark); }
+.form-input { width: 100%; padding: 14px 18px; border-radius: 12px; border: var(--border-grid); font-family: var(--font-global); font-size: 14px; color: var(--text-dark); background: var(--bg-studio); outline: none; transition: border-color 0.3s; }
+.form-input:focus { border-color: var(--text-dark); }
+.file-upload-dashed { border: 2px dashed var(--text-dim); border-radius: 16px; padding: 40px 20px; text-align: center; background: var(--bg-studio); cursor: pointer; }
+
+/* ===== STEPPER QUEUE TRACKER ===== */
+.workflow-flex-matrix { display: grid; grid-template-columns: repeat(4, 1fr); gap: 24px; }
+.workflow-node { background: var(--bg-surface); border: var(--border-grid); border-radius: 20px; padding: 32px 24px; position: relative; }
+.workflow-index { font-size: 48px; font-weight: 800; color: rgba(0, 0, 0, 0.03); position: absolute; top: 20px; right: 24px; }
+.workflow-heading { font-size: 17px; font-weight: 700; margin-bottom: 10px; margin-top: 16px; }
+.workflow-body-p { color: var(--text-muted); font-size: 14px; line-height: 1.6; }
+
+/* ===== PAYMENT AREA ===== */
+.payment-grid-layout { display: grid; grid-template-columns: 1.2fr 0.8fr; gap: 40px; max-width: 800px; margin: 0 auto; background: var(--bg-surface); border: var(--border-grid); border-radius: 24px; padding: 40px; }
+.qr-frame-wrapper { border: var(--border-grid); border-radius: 16px; padding: 20px; text-align: center; background: #fff; display: flex; flex-direction: column; align-items: center; justify-content: center; }
+.qr-image-placeholder { width: 200px; height: 200px; background: #f3f4f6; margin-bottom: 16px; display: flex; align-items: center; justify-content: center; font-weight: bold; border: 1px solid #e5e7eb; position: relative; }
+
+/* ===== CONTACT CHANNELS ===== */
+.contact-channels-suite { display: grid; grid-template-columns: repeat(3, 1fr); gap: 20px; max-width: 900px; margin: 0 auto; }
+.channel-meta-box { background: var(--bg-surface); border: var(--border-grid); border-radius: 20px; padding: 32px 24px; display: flex; flex-direction: column; gap: 16px; align-items: center; text-align: center; text-decoration: none; color: inherit; transition: var(--transition-smooth); }
+.channel-meta-box:hover { border-color: var(--text-dark); transform: translateY(-3px); }
+.channel-icon-avatar { width: 56px; height: 56px; background: #f1f1ef; border-radius: 14px; display: flex; align-items: center; justify-content: center; font-size: 22px; color: var(--brand-blue); }
+
+.studio-footer { background: var(--text-dark); color: #fff; padding: 80px 4% 50px 4%; display: grid; grid-template-columns: 2fr repeat(2, 1fr); gap: 50px; }
+@media (max-width: 1024px) {
+  .studio-nav { grid-template-columns: 1fr auto; height: 80px; }
+  .nav-menu-links { display: none; }
+  .hero-canvas { grid-template-columns: 1fr; padding-top: 140px; }
+  .services-grid-matrix, .workflow-flex-matrix { grid-template-columns: repeat(2, 1fr); }
+  .payment-grid-layout { grid-template-columns: 1fr; }
+}
+@media (max-width: 768px) {
+  .section-header-grid, .craft-layout-matrix, .form-grid-2, .contact-channels-suite, .studio-footer { grid-template-columns: 1fr; }
+}
+</style>
+</head>
+<body class="intro-running">
+
+<div id="ferrariIntroOverlay">
+  <div class="intro-curtain curtain-left"></div>
+  <div class="intro-content-cluster">
+    <div class="intro-logo-text">Zerphyrus</div>
+    <div class="intro-laser-line"></div>
+    <div class="intro-sub-text">Premium Manufacturing Studio</div>
+  </div>
+  <div class="intro-curtain curtain-right"></div>
+</div>
+
+<div id="imageLightboxModal" onclick="closeImagePreview()">
+  <img id="lightboxTargetImg" src="" alt="HD Preview">
+</div>
+
+<nav class="studio-nav">
+  <a href="/" class="nav-logo-box"><span class="nav-logo-text">ZERPHYRUS</span></a>
+  <ul class="nav-menu-links">
+    <li><a href="#about-section" data-i18n="nav-about">About</a></li>
+    <li><a href="#services-section" data-i18n="nav-services">Services</a></li>
+    <li><a href="/catalog" data-i18n="nav-catalog">Catalog</a></li>
+    <li><a href="/" data-i18n="nav-order">Place Order</a></li>
+    <li><a href="/tracking" data-i18n="nav-track">Track Queue</a></li>
+    <li><a href="/tracking" data-i18n="nav-pay">Payment</a></li>
+    <li><a href="/contact" data-i18n="nav-contact">Contact</a></li>
+  </ul>
+  <div class="nav-action-wrapper">
+    <div class="lang-selector-hub">
+      <button class="lang-btn active" onclick="switchLanguage('th')">TH</button>
+      <button class="lang-btn" onclick="switchLanguage('en')">EN</button>
+      <button class="lang-btn" onclick="switchLanguage('zh')">ZH</button>
+    </div>
+  </div>
+</nav>
+
+<header class="hero-canvas">
+  <div class="reveal-node">
+    <h1 id="hero-title">Architecture<br>Of Modern <span>3D Printing</span></h1>
+  </div>
+  <div class="hero-brief-suite reveal-node">
+    <p class="hero-p" data-i18n="hero-desc">Zerphyrus รับทำงาน 3D Printing และงานผลิตตามสั่งแบบครบวงจร สั่งงานออนไลน์ อัปโหลดไฟล์ ติดตามสถานะ และชำระเงินได้ในที่เดียวอย่างมีประสิทธิภาพ</p>
+    <div>
+      <a href="/" class="btn-studio-primary" data-i18n="hero-btn-order">Order Online</a>
+      <a href="/tracking" class="btn-studio-outline" data-i18n="hero-btn-track">Track Job</a>
+    </div>
+  </div>
+</header>
+
+<div class="client-trust-bar">
+  <div class="client-marquee-track">
+    <span>• STL • OBJ • STEP • STP • 3MF • IGES • IGS • F3D • BLEND • FBX • ZIP • HIGH-FIDELITY AUTOMATION DISPATCH SYSTEM</span>
+  </div>
+</div>
+
+<section class="studio-section" id="about-section">
+  <div class="section-header-grid reveal-node">
+    <div>
+      <span class="section-tag" data-i18n="about-tag">Corporate Identity</span>
+      <h2 class="section-title" data-i18n="about-title">วิสัยทัศน์และการดูแลชิ้นงาน</h2>
+    </div>
+    <div>
+      <p class="section-desc-p" data-i18n="about-desc">เราคือผู้ให้บริการรับทำงานตามสั่งและงาน 3D Printing พร้อมระบบจัดการคิวงานอย่างเป็นระบบ เหมาะสำหรับงานสั่งผลิตชิ้นงาน ออกแบบต้นแบบวิศวกรรม สั่งพิมพ์โมเดล 3D หรือสั่งผลิตงาน Custom Order ทั่วไป เพียบพร้อมด้วยประสบการณ์การพัฒนาระบบและงานบริการลูกค้ามากกว่า 5 ปี</p>
+    </div>
+  </div>
+  
+  <div class="craft-layout-matrix">
+    <div class="craft-interactive-card reveal-node" onclick="openImagePreview('https://images.unsplash.com/photo-1615811361523-6bd03d7748e7?auto=format&fit=crop&w=1200&q=80')">
+      <img src="https://images.unsplash.com/photo-1615811361523-6bd03d7748e7?auto=format&fit=crop&w=800&q=80" alt="High Resolution Printing" class="craft-photo-resource">
+      <div class="craft-card-dimmer">
+        <h3>High-Fidelity 3D Printing</h3>
+        <p>งานพิมพ์มิติความละเอียดพิกัดสูง แม่นยำตามสเกลสากล ตรวจ QC ชิ้นงานทุกขั้นตอนก่อนนำส่ง</p>
+      </div>
+    </div>
+    <div class="craft-interactive-card reveal-node" onclick="openImagePreview('https://images.unsplash.com/photo-1581092160607-ee22621dd758?auto=format&fit=crop&w=1200&q=80')">
+      <img src="https://images.unsplash.com/photo-1581092160607-ee22621dd758?auto=format&fit=crop&w=800&q=80" alt="Custom Made Studio" class="craft-photo-resource">
+      <div class="craft-card-dimmer">
+        <h3>End-to-End Custom Order</h3>
+        <p>ดูแลงานตั้งแต่เริ่มปรึกษา ออกแบบโมเดล ปรับแต่งไฟล์โครงสร้าง จนจบกระบวนการผลิต</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section class="studio-section" id="services-section">
+  <div class="section-header-grid reveal-node">
+    <div>
+      <span class="section-tag" data-i18n="services-tag">Capabilities</span>
+      <h2 class="section-title" data-i18n="services-title">บริการหลักภายในสตูดิโอ</h2>
+    </div>
+    <div>
+      <p class="section-desc-p" data-i18n="services-desc">ความหลากหลายของเทคโนโลยีเครื่องจักรผลิตชิ้นงานต้นแบบระดับวิศวกรรมอุตสาหกรรมและงานพิมพ์เชิงสร้างสรรค์ทุกรูปแบบ</p>
+    </div>
+  </div>
+
+  <div class="services-grid-matrix reveal-node">
+    <div class="service-spec-card">
+      <div class="service-icon-frame">⎔</div>
+      <div class="service-meta">
+        <h3>3D Printing Job</h3>
+        <p>พิมพ์ชิ้นงานสามมิติละเอียดสูง รองรับวัสดุ PLA, ABS, PETG, Nylon และ Resin เลือกตั้งค่าเปอร์เซ็นต์ Infill ได้อิสระ</p>
+      </div>
+    </div>
+    <div class="service-spec-card">
+      <div class="service-icon-frame">⌰</div>
+      <div class="service-meta">
+        <h3>Laser & CNC Machining</h3>
+        <p>งานแกะสลักสลักลาย เลเซอร์อะคริลิก และงาน CNC ตัดแต่งแผ่นวัสดุวิศวกรรมด้วยความแม่นยำแถวหน้า</p>
+      </div>
+    </div>
+    <div class="service-spec-card">
+      <div class="service-icon-frame">✏</div>
+      <div class="service-meta">
+        <h3>CAD/CAM Design</h3>
+        <p>บริการรับออกแบบ แก้ไข สเปกโครงสร้าง และเตรียมความพร้อมไฟล์สามมิติก่อนเข้าเครื่องจักรทำงานจริง</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section class="studio-section" id="catalog-section">
+  <div class="section-header-grid reveal-node">
+    <div>
+      <span class="section-tag" data-i18n="catalog-tag">Studio Products</span>
+      <h2 class="section-title" data-i18n="catalog-title">แคตตาล็อกโมเดลและชิ้นงาน</h2>
+    </div>
+  </div>
+
+  <div class="gallery-grid-matrix reveal-node">
+    <div class="gallery-card">
+      <div class="gallery-media-canvas" onclick="openImagePreview('https://images.unsplash.com/photo-1535813547-99c456a41d4a?auto=format&fit=crop&w=1200&q=80')">
+        <img src="https://images.unsplash.com/photo-1535813547-99c456a41d4a?auto=format&fit=crop&w=600&q=80" alt="Gear">
+      </div>
+      <div class="gallery-info-suite">
+        <span class="gallery-item-title">Spur Gear Prototype</span>
+      </div>
+      <div class="gallery-action-box">
+        <span class="gallery-price">฿450</span>
+        <button class="btn-add-cart" onclick="addItemToCart('Spur Gear Prototype', 450)">Add to Cart</button>
+      </div>
+    </div>
+    <div class="gallery-card">
+      <div class="gallery-media-canvas" onclick="openImagePreview('https://images.unsplash.com/photo-1563089145-599997674d42?auto=format&fit=crop&w=1200&q=80')">
+        <img src="https://images.unsplash.com/photo-1563089145-599997674d42?auto=format&fit=crop&w=600&q=80" alt="Art">
+      </div>
+      <div class="gallery-info-suite">
+        <span class="gallery-item-title">Geometric Figure</span>
+      </div>
+      <div class="gallery-action-box">
+        <span class="gallery-price">฿1,200</span>
+        <button class="btn-add-cart" onclick="addItemToCart('Geometric Figure', 1200)">Add to Cart</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="cart-preview-sticky-box reveal-node">
+    <h4 style="font-weight:700; font-size:15px; border-bottom:var(--border-grid); padding-bottom:8px;">🛒 ตะกร้าสินค้าของคุณ / Shopping Cart</h4>
+    <ul class="cart-items-list" id="cartContentList">
+      <li style="color:var(--text-dim); font-size:13px;" id="emptyCartMessage">ไม่มีสินค้าในตะกร้า</li>
+    </ul>
+    <div style="display:flex; justify-content:between; font-weight:700; font-size:15px; margin-top:16px;">
+      <span>Total:</span>
+      <span id="cartTotalPrice" style="margin-left:auto; color:var(--brand-blue);">฿0</span>
+    </div>
+    <button class="btn-studio-primary" style="width:100%; margin-top:16px; font-size:11px; justify-content:center;" onclick="checkoutToPayment()" data-i18n="cart-checkout">Proceed to Checkout</button>
+  </div>
+</section>
+
+<section class="studio-section" id="order-section">
+  <div class="section-header-grid reveal-node">
+    <div>
+      <span class="section-tag" data-i18n="order-tag">Online Booking</span>
+      <h2 class="section-title" data-i18n="order-title">แบบฟอร์มส่งข้อมูลสั่งผลิต</h2>
+    </div>
+  </div>
+
+  <div class="form-container-card reveal-node">
+    <form onsubmit="event.preventDefault(); window.location.href='/';">
+      <div class="form-grid-2">
+        <div class="form-group">
+          <label>ชื่อผู้ติดต่อ / Contact Name</label>
+          <input type="text" class="form-input" required placeholder="ระบุชื่อของคุณ...">
+        </div>
+        <div class="form-group">
+          <label>ประเภทงาน / Job Type</label>
+          <select class="form-input">
+            <option>3D Printing (ฟอร์มสั่งงาน 3D)</option>
+            <option>Laser / CNC Machining</option>
+            <option>Custom Manufacturing (งานสั่งผลิตทั่วไป)</option>
+          </select>
+        </div>
+      </div>
+      <div class="form-grid-2">
+        <div class="form-group">
+          <label>งบประมาณที่ตั้งไว้ / Budget (THB)</label>
+          <input type="number" class="form-input" placeholder="ระบุจำนวนเงิน...">
+        </div>
+        <div class="form-group">
+          <label>กำหนดส่งงาน / Target Deadline</label>
+          <input type="date" class="form-input">
+        </div>
+      </div>
+      <div class="form-group">
+        <label>คำอธิบายรายละเอียดงานเพิ่มเติม / Specifications</label>
+        <textarea class="form-input" rows="4" style="resize:none;" placeholder="ระบุชนิดวัสดุ เปอร์เซ็นต์ Infill สี หรือสเกลขนาดชิ้นงานที่ต้องการ..."></textarea>
+      </div>
+      <div class="form-group">
+        <label>อัปโหลดไฟล์งาน (STL, OBJ, STEP, ZIP, PDF...)</label>
+        <div class="file-upload-dashed">
+          <span style="font-size:24px; display:block; margin-bottom:8px;">⇪</span>
+          <p style="font-size:13px; color:var(--text-muted);">Drag and drop architecture file or click to browse</p>
+          <input type="file" style="display:none;" id="actualFileInput">
+        </div>
+      </div>
+      <button type="submit" class="btn-studio-primary" style="width:100%; justify-content:center;" data-i18n="submit-btn">Submit Order Package</button>
+    </form>
+  </div>
+</section>
+
+<section class="studio-section" id="track-section">
+  <div class="section-header-grid reveal-node">
+    <div>
+      <span class="section-tag" data-i18n="track-tag">Live Operations</span>
+      <h2 class="section-title" data-i18n="track-title">ระบบตรวจสอบขั้นตอนผลิต</h2>
+    </div>
+  </div>
+
+  <div class="form-group reveal-node" style="max-width: 500px; margin: 0 auto 50px auto; flex-direction:row; gap:10px;">
+    <input type="text" class="form-input" placeholder="กรอกรหัสงานคิว หรือ Ticket ID...">
+    <button class="btn-studio-primary" onclick="window.location.href='/tracking'">Search</button>
+  </div>
+
+  <div class="workflow-flex-matrix reveal-node">
+    <div class="workflow-node">
+      <div class="workflow-index">01</div>
+      <h3 class="workflow-heading">01. Quoting & Approved</h3>
+      <p class="workflow-body-p">ระบบรับไฟล์ ตรวจสอบเช็กความสมบูรณ์โครงสร้างชิ้นงาน และประเมินราคา</p>
+    </div>
+    <div class="workflow-node" style="border-color: var(--brand-blue);">
+      <div class="workflow-index" style="color: rgba(37,99,235,0.08);">02</div>
+      <h3 class="workflow-heading" style="color: var(--brand-blue);">02. In Production</h3>
+      <p class="workflow-body-p">ชิ้นงานกำลังอยู่บนแท่นพิมพ์ 3D หรือเข้าไลน์เครื่องจักรตัดเจาะกลึงตามคิวงาน</p>
+    </div>
+    <div class="workflow-node">
+      <div class="workflow-index">03</div>
+      <h3 class="workflow-heading">03. Quality Control / Post</h3>
+      <p class="workflow-body-p">ขัดแต่งชิ้นงาน แกะซัพพอร์ต ทำผิวสัมผัส และตรวจสอบความมิติพิกัดให้ถูกต้อง</p>
+    </div>
+    <div class="workflow-node">
+      <div class="workflow-index">04</div>
+      <h3 class="workflow-heading">04. Delivery Completed</h3>
+      <p class="workflow-body-p">บรรจุหีบห่อวัสดุกันกระแทกแน่นหนา พร้อมส่งมอบด่วนถึงปลายทาง</p>
+    </div>
+  </div>
+</section>
+
+<section class="studio-section" id="payment-section">
+  <div class="section-header-grid reveal-node">
+    <div>
+      <span class="section-tag" data-i18n="pay-tag">Secure Gateway</span>
+      <h2 class="section-title" data-i18n="pay-title">ช่องทางชำระเงินและแจ้งสลิป</h2>
+    </div>
+  </div>
+
+  <div class="payment-grid-layout reveal-node">
+    <div>
+      <h3 style="font-size:18px; font-weight:700; margin-bottom:12px;">แจ้งหลักฐานการโอนเงิน</h3>
+      <form onsubmit="event.preventDefault(); window.location.href='/tracking';">
+        <div class="form-group">
+          <label>ระบุยอดเงินที่โอนตามบิล (THB)</label>
+          <input type="number" id="checkoutAmountField" class="form-input" placeholder="0.00" required>
+        </div>
+        <div class="form-group">
+          <label>อัปโหลดรูปภาพสลิปการโอนเงิน / Upload Slip</label>
+          <input type="file" class="form-input" required accept="image/*">
+        </div>
+        <button type="submit" class="btn-studio-primary" style="width:100%; justify-content:center; background-color:var(--brand-blue); border-color:var(--brand-blue);">Confirm Payment Slip</button>
+      </form>
+    </div>
+    <div class="qr-frame-wrapper">
+      <div class="qr-image-placeholder">
+        <div style="font-size:11px; font-weight:800; color:#0f172a; position:absolute; top:12px;">PROMPTPAY QR</div>
+        <span style="font-size:48px;">▩</span>
+      </div>
+      <p style="font-size:13px; font-weight:700; color:var(--text-dark);">Scan QR Code</p>
+      <p style="font-size:11px; color:var(--text-muted); margin-top:4px;">ระบบรองรับการสแกนจ่ายผ่านแอปพลิเคชันธนาคารทุกสาขา</p>
+    </div>
+  </div>
+</section>
+
+<section class="studio-section" id="contact-section">
+  <div class="section-header-grid reveal-node">
+    <div>
+      <span class="section-tag" data-i18n="contact-tag">Get In Touch</span>
+      <h2 class="section-title" data-i18n="contact-title">ช่องทางการติดต่อสำนักงาน</h2>
+    </div>
+  </div>
+
+  <div class="contact-channels-suite reveal-node">
+    <a href="tel:0800000000" class="channel-meta-box">
+      <div class="channel-icon-avatar">☎</div>
+      <div class="channel-details">
+        <h4>Hotline Call</h4>
+        <p>+66 (0) 80-000-0000</p>
+      </div>
+    </a>
+    <a href="https://line.me" target="_blank" class="channel-meta-box">
+      <div class="channel-icon-avatar">💬</div>
+      <div class="channel-details">
+        <h4>LINE Official</h4>
+        <p>@zerphyrus.studio</p>
+      </div>
+    </a>
+    <a href="mailto:contact@zerphyrus.com" class="channel-meta-box" style="border-style:dashed;">
+      <div class="channel-icon-avatar">✉</div>
+      <div class="channel-details">
+        <h4>Direct Email</h4>
+        <p>contact@zerphyrus.com</p>
+      </div>
+    </a>
+  </div>
+</section>
+
+<footer class="studio-footer">
+  <div>
+    <h2>ZERPHYRUS</h2>
+    <p>Premium 3D Printing & Custom Order Architecture Studio. Powered by Python Flask Network Layers.</p>
+  </div>
+  <div>
+    <h4>Studio Menu</h4>
+    <p style="color:#71717a; font-size:13.5px; margin-top:10px;">เปิดให้บริการคิวการผลิตตลอด 24 ชั่วโมงผ่านระบบจัดการสั่งงานออนไลน์</p>
+  </div>
+</footer>
+
+<script>
+// ระบบควบคุมการปิดฉากหลัง Intro Animation สไตล์ Ferrari (ทำงาน 2.8 วินาทีแล้วเปิดเว็บบอร์ด)
+window.addEventListener('DOMContentLoaded', () => {
+  setTimeout(() => {
+    const introOverlay = document.getElementById('ferrariIntroOverlay');
+    introOverlay.classList.add('shutdown');
+    document.body.classList.remove('intro-running');
+    
+    // ลบ Element ออกจาก DOM หลังอนิเมชันคลี่ม่านสไลด์เสร็จ เพื่อไม่ให้ขวางปุ่มกดของหน้าเว็บ
+    setTimeout(() => { introOverlay.style.display = 'none'; }, 1100);
+    
+    // สตาร์ทระบบ Scroll Reveal ทันทีที่เข้าสู่หน้าเว็บหลัก
+    initScrollReveal();
+  }, 2800);
+});
+
+// พจนานุกรมการแปลข้อมูลสลับ 3 ภาษาแบบเรียลไทม์
+const dictionary = {
+  th: {
+    "nav-about": "เกี่ยวกับเรา", "nav-services": "บริการ", "nav-catalog": "แคตตาล็อก", "nav-order": "สั่งงานออนไลน์", "nav-track": "ติดตามสถานะ", "nav-pay": "แจ้งชำระเงิน", "nav-contact": "ติดต่อเรา",
+    "hero-desc": "Zerphyrus รับทำงาน 3D Printing และงานผลิตตามสั่งแบบครบวงจร สั่งงานออนไลน์ อัปโหลดไฟล์ ติดตามสถานะ และชำระเงินได้ในที่เดียวอย่างมีประสิทธิภาพ",
+    "about-tag": "ข้อมูลอัตลักษณ์องค์กร", "about-title": "วิสัยทัศน์และการดูแลชิ้นงาน",
+    "about-desc": "เราคือผู้ให้บริการรับทำงานตามสั่งและงาน 3D Printing พร้อมระบบจัดการคิวงานอย่างเป็นระบบ เหมาะสำหรับงานสั่งผลิตชิ้นงาน ออกแบบต้นแบบวิศวกรรม สั่งพิมพ์โมเดล 3D หรือสั่งผลิตงาน Custom Order ทั่วไป เพียบพร้อมด้วยประสบการณ์การพัฒนาระบบและงานบริการลูกค้ามากกว่า 5 ปี",
+    "services-title": "บริการหลักภายในสตูดิโอ", "catalog-title": "แคตตาล็อกโมเดลและชิ้นงาน", "order-title": "แบบฟอร์มส่งข้อมูลสั่งผลิต", "track-title": "ระบบตรวจสอบขั้นตอนผลิต", "pay-title": "ช่องทางชำระเงินและแจ้งสลิป", "contact-title": "ช่องทางการติดต่อสำนักงาน"
+  },
+  en: {
+    "nav-about": "About", "nav-services": "Services", "nav-catalog": "Catalog", "nav-order": "Place Order", "nav-track": "Track Queue", "nav-pay": "Payment", "nav-contact": "Contact",
+    "hero-desc": "Zerphyrus provides professional on-demand custom manufacturing and high-fidelity 3D printing with integrated online workflow management tracking layers.",
+    "about-tag": "Corporate Identity", "about-title": "Studio Vision & Craftsmanship",
+    "about-desc": "We specialize in fully optimized engineering fast-prototyping, industrial additive manufacturing nodes, and complex custom design parameters built for reliability.",
+    "services-title": "Core Studio Capabilities", "catalog-title": "Object Repositories", "order-title": "Project Intake Submissions", "track-title": "Live Operations Pipeline", "pay-title": "Secure Payment Gateway", "contact-title": "Studio Communication Nodes"
+  },
+  zh: {
+    "nav-about": "关于我们", "nav-services": "服务范围", "nav-catalog": "产品目录", "nav-order": "在线下单", "nav-track": "进度追踪", "nav-pay": "在线支付", "nav-contact": "联系我们",
+    "hero-desc": "Zerphyrus 提供一站式 3D 打印与定制化制造服务。在线下单、上传文件、追踪进度，高效便捷。",
+    "about-tag": "企业标识", "about-title": "工作室愿景与匠心工艺",
+    "about-desc": "我们专注于高精度的工业级快速原型制造、3D 打印加工以及各类定制化产品的全方位结构与工业设计，致力于满足客户的每一项严苛技术指标。",
+    "services-title": "核心制造能力", "catalog-title": "三维模型与产品目录", "order-title": "定制需求提交表单", "track-title": "生产流水线实时状态", "pay-title": "安全支付与凭证上传", "contact-title": "工作室官方联系渠道"
+  }
+};
+
+function switchLanguage(lang) {
+  document.querySelectorAll('[data-i18n]').forEach(el => {
+    const key = el.getAttribute('data-i18n');
+    if (dictionary[lang] && dictionary[lang][key]) el.textContent = dictionary[lang][key];
+  });
+  document.querySelectorAll('.lang-btn').forEach(btn => {
+    btn.classList.remove('active');
+    if(btn.textContent.toLowerCase() === lang) btn.classList.add('active');
+  });
+}
+
+function openImagePreview(srcUrl) {
+  const modal = document.getElementById('imageLightboxModal');
+  const img = document.getElementById('lightboxTargetImg');
+  modal.style.display = 'flex';
+  img.src = srcUrl;
+}
+
+function closeImagePreview() {
+  document.getElementById('imageLightboxModal').style.display = 'none';
+}
+
+function initScrollReveal() {
+  const nodes = document.querySelectorAll('.reveal-node');
+  const obs = new IntersectionObserver(entries => {
+    entries.forEach(entry => { if (entry.isIntersecting) entry.target.classList.add('activated'); });
+  }, { threshold: 0.05 });
+  nodes.forEach(n => obs.observe(n));
+}
+
+// ระบบจัดการคำนวณข้อมูลในตะกร้าสินค้า (Dynamic Shopping Cart Engine)
+let currentCartData = [];
+let totalAccumulatedPrice = 0;
+
+function addItemToCart(itemName, price) {
+  currentCartData.push({ name: itemName, price: price });
+  totalAccumulatedPrice += price;
+  updateCartViewUI();
+}
+
+function updateCartViewUI() {
+  const listContainer = document.getElementById('cartContentList');
+  const emptyMsg = document.getElementById('emptyCartMessage');
+  const priceDisplay = document.getElementById('cartTotalPrice');
+  
+  if (currentCartData.length > 0) {
+    if (emptyMsg) emptyMsg.style.display = 'none';
+    listContainer.innerHTML = '';
+    currentCartData.forEach(item => {
+      const li = document.createElement('li');
+      li.className = 'cart-item-row';
+      li.innerHTML = `<span>${item.name}</span><strong>฿${item.price}</strong>`;
+      listContainer.appendChild(li);
+    });
+  }
+  priceDisplay.textContent = `฿${totalAccumulatedPrice.toLocaleString()}`;
+}
+
+function checkoutToPayment() {
+  if (currentCartData.length === 0) {
+    alert('ตะกร้าสินค้าว่างเปล่า กรุณาเลือกโมเดลจากแคตตาล็อกก่อนครับ');
+    return;
+  }
+  document.getElementById('checkoutAmountField').value = totalAccumulatedPrice;
+  window.location.href = '#payment-section';
+}
+</script>
+</body>
+</html>
