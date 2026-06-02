@@ -70,12 +70,15 @@ def sync_queue(tasks):
     active_ids = {t['id'] for t in valid_tasks if t.get('status') in ('pending','inprogress')}
     q.setdefault('order', [])
     q.setdefault('estimates', {})
+    old_order = list(q['order'])
     q['order'] = [tid for tid in q['order'] if tid in active_ids]
     existing = set(q['order'])
     new_tasks = sorted([t for t in valid_tasks if t['id'] not in existing and t.get('status') in ('pending','inprogress')],
                        key=lambda t: (PRIORITY_WEIGHT.get(t.get('priority','medium'), 2), t.get('createdAt','')))
     q['order'].extend(t['id'] for t in new_tasks)
-    write_queue(q); return q
+    if q['order'] != old_order:
+        write_queue(q)
+    return q
 
 def reorder_queue(new_order):
     q = read_queue(); q['order'] = new_order; write_queue(q)

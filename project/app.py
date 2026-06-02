@@ -21,7 +21,7 @@ from flask import (Flask, render_template, request, redirect, url_for,
 from werkzeug.utils import secure_filename
 from werkzeug.security import generate_password_hash, check_password_hash
 
-from data_store import get_store, init_data, read_data, write_data
+from data_store import get_store, init_data, preload_data, read_data, write_data
 from promptpay import generate_promptpay_payload
 from queue_manager import (
     read_queue, read_calendar, write_calendar,
@@ -158,7 +158,8 @@ def inject_globals():
 
 @app.before_request
 def protect_post_requests():
-    maybe_auto_backup()
+    if should_auto_backup():
+        maybe_auto_backup()
     if request.method not in {'POST', 'PUT', 'PATCH', 'DELETE'}:
         return
     if request.path == '/webhook':
@@ -254,6 +255,23 @@ DATA_EXPORT_FILES = [
     'customers.json',
     'queue.json',
     'work_calendar.json',
+]
+
+ADMIN_CONTEXT_FILES = [
+    'tasks.json',
+    'stamps.json',
+    'tickets.json',
+    'products.json',
+    'work_calendar.json',
+    'queue.json',
+    'slips.json',
+    'todos.json',
+    'events.json',
+    'notifications.json',
+    'gallery.json',
+    'reviews.json',
+    'coupons.json',
+    'customers.json',
 ]
 
 EXPECTED_DATA_SHAPES = {
@@ -675,6 +693,13 @@ def maybe_auto_backup():
     except Exception:
         pass
 
+def should_auto_backup():
+    if os.environ.get('AUTO_BACKUP_ENABLED') == '1':
+        return True
+    if os.environ.get('AUTO_BACKUP_ENABLED') == '0':
+        return False
+    return not os.environ.get('VERCEL') and os.environ.get('DATA_BACKEND', '').lower() != 'supabase'
+
 def migrate_json_to_sqlite(db_path='zerphyrus.sqlite3'):
     conn = sqlite3.connect(db_path)
     try:
@@ -848,8 +873,9 @@ def slips_for_task(task_id):
     """Return all slips for a task as a list."""
     return read_slips().get(task_id, [])
 
-def pending_slips_count():
-    return sum(1 for ts in read_slips().values() for s in ts if s.get('status')=='pending')
+def pending_slips_count(slips=None):
+    slips = slips if slips is not None else read_slips()
+    return sum(1 for ts in slips.values() for s in ts if isinstance(s, dict) and s.get('status')=='pending')
 
 def payment_amount_for_task(task, requested_amount=None, pay_part=''):
     if requested_amount is not None:
@@ -886,10 +912,21 @@ def get_webhook_url():
 
 # ── Admin context ──────────────────────────────────────────────────────────────
 def admin_context(tasks_override=None):
-    all_tasks = read_tasks(); tasks = tasks_override if tasks_override is not None else all_tasks
-    stamps = read_stamps(); tickets = read_tickets(); cal = read_calendar()
-    yr = date.today().year; slips = read_slips()
-    tasks_with_slip = [{**t, 'slip': slip_status_for_task(t.get('id', ''))} for t in tasks if isinstance(t, dict)]
+    preload_data(ADMIN_CONTEXT_FILES)
+
+    all_tasks = read_tasks()
+    tasks = tasks_override if tasks_override is not None else all_tasks
+    stamps = read_stamps()
+    tickets = read_tickets()
+    cal = read_calendar()
+    slips = read_slips()
+    current_year = date.today().year
+
+    tasks_with_slip = [
+        {**task, 'slip': (slips.get(task.get('id', ''), []) or [None])[-1]}
+        for task in tasks
+        if isinstance(task, dict)
+    ]
     stamp_rows = [v for v in stamps.values() if isinstance(v, dict)]
     ticket_rows = [v for v in tickets.values() if isinstance(v, dict)]
     return dict(
@@ -905,10 +942,10 @@ def admin_context(tasks_override=None):
         ticket_stats={'total': len(tickets), 'active': sum(1 for t in ticket_rows if t.get('status')=='active'),
                       'checked_in': sum(1 for t in ticket_rows if t.get('status')=='checked_in')},
         stamps_to_reward=STAMPS_TO_REWARD, promptpay_phone=PROMPTPAY_PHONE,
-        calendar=cal, ya=yearly_analytics(all_tasks, yr, cal),
+        calendar=cal, ya=yearly_analytics(all_tasks, current_year, cal),
         queue_tasks=get_queue_with_tasks(all_tasks, cal),
         qr_image=get_qr_image(), all_slips=slips,
-        pending_slips=pending_slips_count(), todos=read_todos(),
+        pending_slips=pending_slips_count(slips), todos=read_todos(),
         action_items=build_action_items(all_tasks, slips),
         revenue=revenue_analytics(slips),
         status_flow=STATUS_FLOW, status_labels=STATUS_LABELS,
@@ -1340,7 +1377,8 @@ def review_order(task_id):
 @app.route('/admin')
 @admin_required
 def admin_dashboard():
-    return render_template('admin_dashboard.html', products_count=len(read_products()), **admin_context())
+    ctx = admin_context()
+    return render_template('admin_dashboard.html', products_count=len(read_products()), **ctx)
 
 @app.route('/admin/filter/<status>')
 @admin_required

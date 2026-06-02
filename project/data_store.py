@@ -7,6 +7,12 @@ from threading import RLock
 
 import requests
 
+try:
+    from flask import g, has_request_context
+except Exception:  # pragma: no cover - helpers are optional outside Flask.
+    g = None
+    has_request_context = lambda: False
+
 
 JSON_LOCK_TIMEOUT = int(os.environ.get("JSON_LOCK_TIMEOUT", "8"))
 _THREAD_LOCK = RLock()
@@ -53,6 +59,9 @@ class JsonDataStore:
             with open(tmp, "w", encoding="utf-8") as f:
                 json.dump(data, f, ensure_ascii=False, indent=2)
             os.replace(tmp, name)
+
+    def read_many(self, names):
+        return {name: self.read(name, None) for name in names}
 
     def init_file(self, name, default):
         if not Path(name).exists():
@@ -108,6 +117,22 @@ class SupabaseKVStore:
                 raise
             return False
 
+    def read_many(self, names):
+        if not names:
+            return {}
+        quoted = ",".join(f'"{name.replace(chr(34), "")}"' for name in names)
+        try:
+            resp = requests.get(
+                f"{self.url}/rest/v1/{self.table}",
+                headers=self.headers,
+                params={"select": "name,data", "name": f"in.({quoted})"},
+                timeout=self.timeout,
+            )
+            resp.raise_for_status()
+            return {row["name"]: row["data"] for row in resp.json()}
+        except (requests.RequestException, ValueError, KeyError, TypeError):
+            return {}
+
     def init_file(self, name, default):
         # On serverless hosts, app import must stay cheap and resilient.
         # Missing rows are handled by read defaults and writes will upsert later.
@@ -137,12 +162,41 @@ def reset_store_for_tests():
     _STORE = None
 
 
+def _request_cache():
+    if not has_request_context():
+        return None
+    if not hasattr(g, "_zerphyrus_data_cache"):
+        g._zerphyrus_data_cache = {}
+    return g._zerphyrus_data_cache
+
+
 def read_data(name, default=None):
-    return get_store().read(name, default)
+    cache = _request_cache()
+    if cache is not None and name in cache:
+        return cache[name]
+    data = get_store().read(name, default)
+    if cache is not None:
+        cache[name] = data
+    return data
 
 
 def write_data(name, data):
-    return get_store().write(name, data)
+    ok = get_store().write(name, data)
+    cache = _request_cache()
+    if cache is not None:
+        cache[name] = data
+    return ok
+
+
+def preload_data(names):
+    cache = _request_cache()
+    missing = list(dict.fromkeys(name for name in names if cache is None or name not in cache))
+    if not missing:
+        return {}
+    rows = get_store().read_many(missing)
+    if cache is not None:
+        cache.update(rows)
+    return rows
 
 
 def init_data(name, default):

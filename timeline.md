@@ -1,5 +1,42 @@
 # Zerphyrus Timeline
 
+## Current Status (Latest)
+
+- วันที่อัปเดตล่าสุด: 2026-06-02
+- สถานะล่าสุด: refactor รอบ performance/readability สำหรับหน้า admin, data store cache, queue sync และเอกสารสรุปโปรเจคเสร็จแล้ว
+- คำสั่งตรวจสอบล่าสุด:
+  - `python -m py_compile api\index.py wsgi.py project\app.py project\data_store.py project\queue_manager.py project\promptpay.py project\pdf_generator.py project\storage_backend.py tests\test_core.py`
+  - `python -m unittest discover -s tests -v`
+- ผลล่าสุด: `Ran 23 tests ... OK`
+
+## 2026-06-02
+
+### Status Update
+
+- โปรเจค deploy flow หลักเป็น Vercel + Supabase
+- หน้า health check ใช้ตรวจว่า backend ทำงานได้ที่ `/healthz`
+- ข้อมูลหลักยังอยู่ใน JSON-compatible store ผ่าน `project/data_store.py` และสามารถใช้ Supabase table `zerphyrus_kv` ได้เมื่อกำหนด `DATA_BACKEND=supabase`
+- ไฟล์ upload สามารถย้ายไป Supabase Storage ได้ผ่าน `project/storage_backend.py`
+
+### Refactor / Performance
+
+- เพิ่ม request-level cache ใน `project/data_store.py` เพื่อลดการอ่าน JSON/Supabase ซ้ำใน request เดียวกัน
+- เพิ่ม `preload_data()` เพื่อให้หน้า admin โหลดข้อมูลหลายไฟล์ในรอบเดียวเมื่อ backend รองรับ
+- ปรับ `admin_context()` ใน `project/app.py` ให้อ่านง่ายขึ้นและใช้ข้อมูล slips ที่โหลดไว้แล้ว แทนการเรียกซ้ำต่อ task
+- ปิด auto backup อัตโนมัติบน Vercel/Supabase โดย default เพื่อลด overhead และเลี่ยงปัญหา filesystem แบบ read-only
+- ปรับ `sync_queue()` ใน `project/queue_manager.py` ให้ไม่เขียน queue ซ้ำถ้าลำดับงานไม่เปลี่ยน
+- เพิ่ม guard ให้ queue/calendar analytics ทนกับข้อมูลผิด shape มากขึ้น
+
+### Documentation
+
+- เพิ่ม `docs/PROJECT_SUMMARY.md` สำหรับสรุปภาพรวมโปรเจค, entrypoint, data backend, deploy, tests และงานที่แนะนำต่อ
+
+### Tests
+
+- เพิ่ม test สำหรับ data request cache
+- เพิ่ม test สำหรับ queue sync ที่ต้องไม่เขียนข้อมูลซ้ำเมื่อ order ไม่เปลี่ยน
+- รัน syntax check และ unit tests ผ่านทั้งหมด
+
 บันทึกนี้ใช้ติดตามว่าแต่ละวันทำอะไรไปถึงไหนแล้วในโปรเจกต์ Zerphyrus
 
 ## Current Status

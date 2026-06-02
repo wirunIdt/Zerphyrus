@@ -110,6 +110,27 @@ class QueueManagerTests(unittest.TestCase):
         self.assertEqual(projected[0]["estimated_hours"], 3.5)
         self.assertEqual(projected[0]["queue_note"], "long print")
 
+    def test_sync_queue_skips_write_when_order_is_unchanged(self):
+        queue_manager.write_queue({"order": ["a"], "estimates": {}})
+        tasks = [{"id": "a", "status": "pending", "priority": "medium", "createdAt": "2026-01-01"}]
+        writes = []
+        original_write_queue = queue_manager.write_queue
+
+        def spy_write_queue(data):
+            writes.append(data.copy())
+            original_write_queue(data)
+
+        queue_manager.write_queue = spy_write_queue
+        try:
+            self.assertEqual(queue_manager.sync_queue(tasks)["order"], ["a"])
+            self.assertEqual(writes, [])
+
+            tasks.append({"id": "b", "status": "pending", "priority": "low", "createdAt": "2026-01-02"})
+            self.assertEqual(queue_manager.sync_queue(tasks)["order"], ["a", "b"])
+            self.assertEqual(len(writes), 1)
+        finally:
+            queue_manager.write_queue = original_write_queue
+
     def test_working_days_and_yearly_analytics(self):
         cal = queue_manager.read_calendar()
         self.assertGreater(queue_manager.working_days_count(2026, cal), 200)
@@ -232,6 +253,41 @@ class AppHelperTests(unittest.TestCase):
         self.assertEqual(store.read("missing.json", {"fallback": True})["fallback"], True)
         self.assertEqual(storage_backend.normalize_storage_path("\\slips\\proof.png"), "slips/proof.png")
         self.assertFalse(storage_backend.storage_enabled())
+
+    def test_request_cache_preloads_data_once_per_request(self):
+        class CountingStore:
+            def __init__(self):
+                self.read_calls = []
+                self.read_many_calls = []
+
+            def read(self, name, default=None):
+                self.read_calls.append(name)
+                return {"name": name}
+
+            def read_many(self, names):
+                self.read_many_calls.append(list(names))
+                return {name: {"name": name} for name in names}
+
+            def write(self, name, data):
+                return True
+
+            def init_file(self, name, default):
+                return None
+
+        original_store = data_store._STORE
+        store = CountingStore()
+        data_store._STORE = store
+        try:
+            with flask_app.test_request_context("/"):
+                data_store.preload_data(["a.json", "b.json", "a.json"])
+                self.assertEqual(data_store.read_data("a.json")["name"], "a.json")
+                self.assertEqual(data_store.read_data("b.json")["name"], "b.json")
+                self.assertEqual(data_store.read_data("c.json")["name"], "c.json")
+
+            self.assertEqual(store.read_many_calls, [["a.json", "b.json"]])
+            self.assertEqual(store.read_calls, ["c.json"])
+        finally:
+            data_store._STORE = original_store
 
     def test_task_file_listing_uses_correct_upload_base(self):
         with tempfile.TemporaryDirectory() as tmp:
