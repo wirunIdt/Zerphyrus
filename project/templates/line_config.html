@@ -1,7 +1,7 @@
 {% extends "base.html" %}
 {% block title %}ตั้งค่า LINE{% endblock %}
 {% block topbar_title %}<span data-th="⚙️ ตั้งค่า LINE & PromptPay" data-en="⚙️ Settings">⚙️ ตั้งค่า LINE & PromptPay</span>{% endblock %}
-{% block extra_head %}<style>.lc-wrap{max-width:700px}.field-row{display:grid;grid-template-columns:1fr 1fr;gap:12px}.qr-pick-box{width:180px;height:180px;border-radius:var(--r);border:2px dashed var(--border);background:var(--surface2);display:flex;align-items:center;justify-content:center;font-size:3em;cursor:pointer;overflow:hidden;transition:border-color .2s;flex-shrink:0}.qr-pick-box:hover{border-color:var(--accent)}.qr-pick-box img{width:100%;height:100%;object-fit:contain}@media(max-width:520px){.field-row{grid-template-columns:1fr}}</style>{% endblock %}
+{% block extra_head %}<style>.lc-wrap{max-width:700px}.field-row{display:grid;grid-template-columns:1fr 1fr;gap:12px}.qr-pick-box{width:180px;height:180px;border-radius:var(--r);border:2px dashed var(--border);background:var(--surface2);display:flex;align-items:center;justify-content:center;font-size:3em;cursor:pointer;overflow:hidden;transition:border-color .2s;flex-shrink:0}.qr-pick-box:hover{border-color:var(--accent)}.qr-pick-box img{width:100%;height:100%;object-fit:contain}.admin-user-list{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:14px}.admin-user-chip{display:inline-flex;align-items:center;gap:7px;background:var(--surface2);border:1px solid var(--border);border-radius:var(--r-pill);padding:6px 11px;font-size:.78em;color:var(--text2)}@media(max-width:520px){.field-row{grid-template-columns:1fr}}</style>{% endblock %}
 {% block content %}
 <div class="lc-wrap">
   {% if msg %}<div class="card card-p" style="margin-bottom:14px;background:var(--green-lt);border:1px solid var(--green)"><span style="color:var(--green);font-weight:600">✅ {{ msg }}</span></div>{% endif %}
@@ -27,12 +27,36 @@
       </div>
     </div>
   </div>
+  <div class="card card-p" style="margin-bottom:14px">
+    <div class="sec-title" style="margin-bottom:6px">Admin Users</div>
+    <div style="font-size:.78em;color:var(--text3);margin-bottom:14px">เพิ่มบัญชีผู้ดูแลระบบสำหรับเข้าหน้า admin dashboard</div>
+    {% if admin_user_msg %}<div style="margin-bottom:12px"><span class="badge badge-green">✅ {{ admin_user_msg }}</span></div>{% endif %}
+    {% if admin_user_error %}<div style="margin-bottom:12px"><span class="badge badge-red">❌ {{ admin_user_error }}</span></div>{% endif %}
+    <div class="admin-user-list">
+      {% for user in admin_users %}
+      <span class="admin-user-chip"><span class="sb-avatar" style="width:22px;height:22px;font-size:.68em">{{ user[0]|upper }}</span>{{ user }}</span>
+      {% else %}
+      <span class="badge badge-amber">ยังไม่มี admin user</span>
+      {% endfor %}
+    </div>
+    <form action="/admin/users/add" method="post">
+      <div class="field-row">
+        <div class="field"><label>Username</label><input name="username" class="input" placeholder="new_admin" autocomplete="username" required></div>
+        <div class="field"><label>Password</label><input name="password" type="password" class="input" placeholder="อย่างน้อย 6 ตัวอักษร" autocomplete="new-password" required></div>
+      </div>
+      <div class="field"><label>Confirm Password</label><input name="password2" type="password" class="input" placeholder="พิมพ์รหัสผ่านอีกครั้ง" autocomplete="new-password" required></div>
+      <button type="submit" class="btn btn-secondary btn-sm">เพิ่ม Admin User</button>
+    </form>
+  </div>
   <!-- Config -->
   <form method="post" action="/admin/line_config">
     <div class="card card-p" style="margin-bottom:14px">
       <div class="sec-title" style="margin-bottom:14px">💬 LINE Bot</div>
+      <div style="margin-bottom:12px"><span class="badge {% if line_handler_enabled %}badge-green{% else %}badge-red{% endif %}">{% if line_handler_enabled %}Webhook handler พร้อมใช้งาน{% else %}ยังไม่พบ LINE webhook handler{% endif %}</span></div>
       <div class="field"><label>LINE Channel Access Token</label><input name="LINE_CHANNEL_ACCESS_TOKEN" value="{{ token }}" class="input" placeholder="Channel Access Token"></div>
+      <div class="field"><label>LINE Channel Secret</label><input name="LINE_CHANNEL_SECRET" value="{{ secret }}" class="input" placeholder="Channel Secret"></div>
       <div class="field"><label>LINE Admin User ID</label><input name="ADMIN_LINE_USER_ID" value="{{ admin_id }}" class="input" placeholder="UID ของ Admin"></div>
+      {% if webhook_url %}<div style="font-size:.78em;background:var(--surface2);border-radius:var(--r-sm);padding:10px 14px;font-family:var(--fm);word-break:break-all;color:var(--text)">Webhook URL: <strong>{{ webhook_url }}/webhook</strong></div>{% endif %}
     </div>
     <div class="card card-p" style="margin-bottom:14px">
       <div class="sec-title" style="margin-bottom:14px">💳 PromptPay & ร้านค้า</div>
@@ -42,8 +66,13 @@
       </div>
     </div>
     <div class="card card-p" style="margin-bottom:14px">
+      <div class="sec-title" style="margin-bottom:14px">SMS / Twilio</div>
+      <div class="field"><label>Twilio Account SID</label><input name="TWILIO_ACCOUNT_SID" value="{{ twilio_sid }}" class="input" placeholder="ACxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"></div>
+      <div class="field"><label>Twilio Auth Token</label><input name="TWILIO_AUTH_TOKEN" value="{{ twilio_token }}" class="input" placeholder="Auth Token"></div>
+      <div class="field"><label>Twilio From Number</label><input name="TWILIO_FROM" value="{{ twilio_from }}" class="input" placeholder="+1234567890"></div>
+    </div>
+    <div class="card card-p" style="margin-bottom:14px">
       <div class="sec-title" style="margin-bottom:14px">🔒 HTTPS & Webhook</div>
-      {% if webhook_url %}<div style="font-size:.78em;background:var(--surface2);border-radius:var(--r-sm);padding:10px 14px;margin-bottom:14px;font-family:var(--fm);word-break:break-all;color:var(--text)">Webhook URL: <strong>{{ webhook_url }}/webhook</strong></div>{% endif %}
       <div class="field-row">
         <div class="field"><label>โปรโตคอล</label><select name="PREFERRED_SCHEME" class="input"><option value="http" {% if scheme=='http' %}selected{% endif %}>HTTP</option><option value="https" {% if scheme=='https' %}selected{% endif %}>HTTPS</option></select></div>
         <div class="field"><label>External URL (ngrok/domain)</label><input name="EXTERNAL_URL" value="{{ webhook_url or '' }}" class="input" placeholder="https://xxxx.ngrok.io"></div>

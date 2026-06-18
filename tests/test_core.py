@@ -1,4 +1,7 @@
 import importlib
+import base64
+import hashlib
+import hmac
 import os
 import sys
 import tempfile
@@ -21,6 +24,7 @@ queue_manager = importlib.import_module("queue_manager")
 data_store = importlib.import_module("data_store")
 storage_backend = importlib.import_module("storage_backend")
 app_module = importlib.import_module("app")
+line_handler = importlib.import_module("line_handler")
 pdf_generator = importlib.import_module("pdf_generator")
 
 flask_app = app_module.app
@@ -35,6 +39,14 @@ def tearDownModule():
 
 def reset_json():
     data_store.reset_store_for_tests()
+    for key in [
+        "LINE_CHANNEL_ACCESS_TOKEN", "LINE_CHANNEL_SECRET", "ADMIN_LINE_USER_ID",
+        "TWILIO_ACCOUNT_SID", "TWILIO_AUTH_TOKEN", "TWILIO_FROM",
+    ]:
+        os.environ.pop(key, None)
+    env_path = Path(".env")
+    if env_path.exists():
+        env_path.unlink()
     app_module._w("tasks.json", [])
     app_module._w("users.json", {"admin": "admin123"})
     app_module._w("stamps.json", {})
@@ -365,6 +377,92 @@ class FlaskRouteSmokeTests(unittest.TestCase):
         response = self.client.get("/admin/task_files/task-1")
         self.assertEqual(response.status_code, 200)
         self.assertEqual(response.get_json()["files"][0]["url"], "/uploads/3d_models/missing.stl")
+
+    def test_admin_can_add_admin_user(self):
+        with self.client.session_transaction() as sess:
+            sess["username"] = "admin"
+
+        response = self.client.post("/admin/users/add", data={
+            "csrf_token": "test-token",
+            "username": "staff_admin",
+            "password": "secret123",
+            "password2": "secret123",
+        })
+        self.assertEqual(response.status_code, 302)
+        users = app_module.read_users()
+        self.assertIn("staff_admin", users)
+        self.assertNotEqual(users["staff_admin"], "secret123")
+        self.assertTrue(app_module.verify_password(users["staff_admin"], "secret123"))
+
+        self.client.get("/logout")
+        response = self.client.post("/login", data={
+            "csrf_token": "test-token",
+            "username": "staff_admin",
+            "password": "secret123",
+        })
+        self.assertEqual(response.status_code, 302)
+
+    def test_admin_add_user_validates_input(self):
+        with self.client.session_transaction() as sess:
+            sess["username"] = "admin"
+
+        response = self.client.post("/admin/users/add", data={
+            "csrf_token": "test-token",
+            "username": "bad user",
+            "password": "secret123",
+            "password2": "secret123",
+        })
+        self.assertEqual(response.status_code, 302)
+        self.assertNotIn("bad user", app_module.read_users())
+
+    def test_line_config_saves_line_and_twilio_settings(self):
+        Path(".env").write_text("SECRET_KEY=keep-me\n", encoding="utf-8")
+        with self.client.session_transaction() as sess:
+            sess["username"] = "admin"
+
+        response = self.client.post("/admin/line_config", data={
+            "csrf_token": "test-token",
+            "LINE_CHANNEL_ACCESS_TOKEN": "line-token",
+            "LINE_CHANNEL_SECRET": "line-secret",
+            "ADMIN_LINE_USER_ID": "Uadmin",
+            "TWILIO_ACCOUNT_SID": "AC123",
+            "TWILIO_AUTH_TOKEN": "twilio-token",
+            "TWILIO_FROM": "+15551234567",
+        })
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(os.environ["LINE_CHANNEL_SECRET"], "line-secret")
+        self.assertEqual(os.environ["TWILIO_ACCOUNT_SID"], "AC123")
+        env_text = Path(".env").read_text(encoding="utf-8")
+        self.assertIn("SECRET_KEY=keep-me", env_text)
+        self.assertIn("LINE_CHANNEL_ACCESS_TOKEN=line-token", env_text)
+        self.assertIn("TWILIO_FROM=+15551234567", env_text)
+
+    def test_line_webhook_signature_accepts_empty_events(self):
+        os.environ["LINE_CHANNEL_SECRET"] = "line-secret"
+        body = b'{"events":[]}'
+        digest = hmac.new(b"line-secret", body, hashlib.sha256).digest()
+        signature = base64.b64encode(digest).decode("ascii")
+
+        self.assertTrue(line_handler.verify_signature(body, signature))
+        response = self.client.post(
+            "/webhook",
+            data=body,
+            content_type="application/json",
+            headers={"X-Line-Signature": signature},
+        )
+        self.assertEqual(response.status_code, 200)
+
+    def test_line_handler_finds_ticket_status(self):
+        task = AppHelperTests().sample_task()
+        task["sn"] = "ZP-0001"
+        task["status"] = "inprogress"
+        task["deadline"] = "2026-06-30"
+        app_module.write_tasks([task])
+        app_module.write_tickets({"ABCD1234": {"task_id": "task-1"}})
+
+        text = line_handler.order_status_message("ABCD1234", app_module.read_tasks, app_module.read_tickets)
+        self.assertIn("ZP-0001", text)
+        self.assertIn("กำลังดำเนินการ", text)
 
     def test_customer_register_login_dashboard_flow(self):
         response = self.client.post("/customer/register", data={

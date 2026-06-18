@@ -9,7 +9,7 @@ Bugs fixed:
   6. todos.json not initialized → added to _init loop
   7. .env encoding: auto-fix UTF-8 on startup
 """
-import json, os, uuid, secrets as _secrets, io as _io, zipfile, tempfile, shutil, smtplib, time, hmac, hashlib, threading, sqlite3, mimetypes
+import json, os, re, uuid, secrets as _secrets, io as _io, zipfile, tempfile, shutil, smtplib, time, hmac, hashlib, threading, sqlite3, mimetypes
 from contextlib import contextmanager
 from datetime import datetime, date, timedelta
 from functools import wraps
@@ -1764,20 +1764,61 @@ def api_remove_date():
 def api_yearly(year):
     return jsonify(yearly_analytics(read_tasks(), year, read_calendar()))
 
+SETTINGS_ENV_KEYS = [
+    'LINE_CHANNEL_ACCESS_TOKEN', 'LINE_CHANNEL_SECRET', 'ADMIN_LINE_USER_ID',
+    'PROMPTPAY_PHONE', 'COMPANY_NAME', 'PREFERRED_SCHEME',
+    'SMTP_HOST', 'SMTP_PORT', 'SMTP_USER', 'SMTP_PASSWORD', 'SMTP_FROM', 'SMTP_TLS',
+    'TWILIO_ACCOUNT_SID', 'TWILIO_AUTH_TOKEN', 'TWILIO_FROM',
+]
+
+def _read_env_values(path='.env'):
+    values = {}
+    order = []
+    if not os.path.exists(path):
+        return values, order
+    with open(path, encoding='utf-8') as f:
+        for line in f:
+            stripped = line.strip()
+            if not stripped or stripped.startswith('#') or '=' not in stripped:
+                continue
+            key, value = stripped.split('=', 1)
+            values[key] = value
+            if key not in order:
+                order.append(key)
+    return values, order
+
+def _write_env_values(values, order, path='.env'):
+    keys = order + sorted(k for k in values if k not in order)
+    with open(path, 'w', encoding='utf-8') as f:
+        for key in keys:
+            f.write(f"{key}={values[key]}\n")
+
+def save_settings_env_from_form(keys):
+    values, order = _read_env_values()
+    changed = False
+    for key in keys:
+        value = request.form.get(key)
+        if value is None:
+            continue
+        value = value.strip()
+        if not value:
+            continue
+        values[key] = value
+        os.environ[key] = value
+        if key not in order:
+            order.append(key)
+        changed = True
+    if changed:
+        _write_env_values(values, order)
+    return changed
+
 @app.route('/admin/line_config', methods=['GET','POST'])
 @admin_required
 def line_config():
     msg = None; qr_saved = request.args.get('qr_saved') == '1'
     if request.method == 'POST':
-        lines = []
-        for k in ['LINE_CHANNEL_ACCESS_TOKEN','LINE_CHANNEL_SECRET','ADMIN_LINE_USER_ID',
-                  'PROMPTPAY_PHONE','COMPANY_NAME','PREFERRED_SCHEME',
-                  'SMTP_HOST','SMTP_PORT','SMTP_USER','SMTP_PASSWORD','SMTP_FROM','SMTP_TLS']:
-            v = request.form.get(k,'').strip()
-            if v: os.environ[k] = v; lines.append(f"{k}={v}")
-        if lines:
-            with open('.env', 'w', encoding='utf-8') as f: f.write('\n'.join(lines)+'\n')
-        msg = 'บันทึกเรียบร้อย — รีสตาร์ทเซิร์ฟเวอร์เพื่อให้มีผล'
+        saved = save_settings_env_from_form(SETTINGS_ENV_KEYS)
+        msg = 'บันทึกเรียบร้อย — รีสตาร์ทเซิร์ฟเวอร์เพื่อให้มีผล' if saved else 'ไม่มีข้อมูลใหม่ให้บันทึก'
     return render_template('line_config.html', msg=msg, qr_saved=qr_saved, qr_image=get_qr_image(),
                            token=os.environ.get('LINE_CHANNEL_ACCESS_TOKEN',''),
                            secret=os.environ.get('LINE_CHANNEL_SECRET',''),
@@ -1786,7 +1827,34 @@ def line_config():
                            smtp_host=os.environ.get('SMTP_HOST',''), smtp_port=os.environ.get('SMTP_PORT','587'),
                            smtp_user=os.environ.get('SMTP_USER',''), smtp_password=os.environ.get('SMTP_PASSWORD',''),
                            smtp_from=os.environ.get('SMTP_FROM',''), smtp_tls=os.environ.get('SMTP_TLS','1'),
-                           webhook_url=get_webhook_url())
+                           twilio_sid=os.environ.get('TWILIO_ACCOUNT_SID',''),
+                           twilio_token=os.environ.get('TWILIO_AUTH_TOKEN',''),
+                           twilio_from=os.environ.get('TWILIO_FROM',''),
+                           line_handler_enabled=LINE_ENABLED,
+                           webhook_url=get_webhook_url(), admin_users=sorted(read_users().keys()),
+                           admin_user_msg=request.args.get('admin_user_msg'),
+                           admin_user_error=request.args.get('admin_user_error'))
+
+@app.route('/admin/users/add', methods=['POST'])
+@admin_required
+def admin_users_add():
+    username = request.form.get('username','').strip()
+    password = request.form.get('password','')
+    password2 = request.form.get('password2','')
+    if not username:
+        return redirect(url_for('line_config', admin_user_error='กรอกชื่อผู้ใช้ก่อน'))
+    if not re.fullmatch(r'[A-Za-z0-9_.-]{3,40}', username):
+        return redirect(url_for('line_config', admin_user_error='ชื่อผู้ใช้ใช้ได้เฉพาะ A-Z, 0-9, จุด, ขีดกลาง, ขีดล่าง และต้องยาว 3-40 ตัว'))
+    if len(password) < 6:
+        return redirect(url_for('line_config', admin_user_error='รหัสผ่านต้องมีอย่างน้อย 6 ตัวอักษร'))
+    if password != password2:
+        return redirect(url_for('line_config', admin_user_error='รหัสผ่านยืนยันไม่ตรงกัน'))
+    users = read_users()
+    if username in users:
+        return redirect(url_for('line_config', admin_user_error='มี admin user นี้อยู่แล้ว'))
+    users[username] = hash_password(password)
+    write_users(users)
+    return redirect(url_for('line_config', admin_user_msg=f'เพิ่ม admin user {username} เรียบร้อย'))
 
 @app.route('/admin/todos/add', methods=['POST'])
 @admin_required
