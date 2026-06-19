@@ -41,9 +41,14 @@ def reset_json():
     data_store.reset_store_for_tests()
     for key in [
         "LINE_CHANNEL_ACCESS_TOKEN", "LINE_CHANNEL_SECRET", "ADMIN_LINE_USER_ID",
+        "PROMPTPAY_PHONE", "COMPANY_NAME", "PREFERRED_SCHEME", "EXTERNAL_URL",
+        "SMTP_HOST", "SMTP_PORT", "SMTP_USER", "SMTP_PASSWORD", "SMTP_FROM", "SMTP_TLS",
         "TWILIO_ACCOUNT_SID", "TWILIO_AUTH_TOKEN", "TWILIO_FROM",
     ]:
         os.environ.pop(key, None)
+    app_module.PROMPTPAY_PHONE = "0812345678"
+    app_module.COMPANY_NAME = "ระบบจัดการงานลูกค้า"
+    app_module.PREFERRED_SCHEME = ""
     env_path = Path(".env")
     if env_path.exists():
         env_path.unlink()
@@ -63,6 +68,7 @@ def reset_json():
     app_module._w("coupons.json", [])
     app_module._w("invoices.json", {"last_no": 0, "items": {}})
     app_module._w("customers.json", {})
+    app_module._w("settings.json", {})
     queue_manager.write_queue({"order": [], "estimates": {}})
     queue_manager.write_calendar({
         "work_days_of_week": [0, 1, 2, 3, 4],
@@ -436,6 +442,27 @@ class FlaskRouteSmokeTests(unittest.TestCase):
         self.assertIn("SECRET_KEY=keep-me", env_text)
         self.assertIn("LINE_CHANNEL_ACCESS_TOKEN=line-token", env_text)
         self.assertIn("TWILIO_FROM=+15551234567", env_text)
+
+    def test_line_config_saves_settings_on_vercel_without_env_file(self):
+        os.environ["VERCEL"] = "1"
+        try:
+            with self.client.session_transaction() as sess:
+                sess["username"] = "admin"
+
+            response = self.client.post("/admin/line_config", data={
+                "csrf_token": "test-token",
+                "PROMPTPAY_PHONE": "089-111-2222",
+                "COMPANY_NAME": "Deploy Shop",
+                "PREFERRED_SCHEME": "https",
+                "EXTERNAL_URL": "https://example.com",
+            })
+            self.assertEqual(response.status_code, 200)
+            self.assertFalse(Path(".env").exists())
+            self.assertEqual(app_module.read_settings()["PROMPTPAY_PHONE"], "089-111-2222")
+            self.assertEqual(app_module.current_promptpay_phone(), "089-111-2222")
+            self.assertIn(b"089-111-2222", response.data)
+        finally:
+            os.environ.pop("VERCEL", None)
 
     def test_line_webhook_signature_accepts_empty_events(self):
         os.environ["LINE_CHANNEL_SECRET"] = "line-secret"

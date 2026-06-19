@@ -94,6 +94,7 @@ for d in [UPLOAD_FOLDER, QR_FOLDER, SLIP_FOLDER, PRODUCT_IMG_FOLDER, MODEL_3D_FO
 
 PROMPTPAY_PHONE  = os.environ.get('PROMPTPAY_PHONE', '0812345678')
 COMPANY_NAME     = os.environ.get('COMPANY_NAME', 'ระบบจัดการงานลูกค้า')
+SETTINGS_STORE_FILE = 'settings.json'
 STAMPS_TO_REWARD = 10
 JSON_LOCK_TIMEOUT = 8
 _JSON_THREAD_LOCK = threading.RLock()
@@ -155,10 +156,11 @@ def csrf_token():
 def inject_globals():
     try: cc = cart_count()
     except: cc = 0
-    return dict(cart_count=cc, company_name=COMPANY_NAME, csrf_token=csrf_token)
+    return dict(cart_count=cc, company_name=current_company_name(), csrf_token=csrf_token)
 
 @app.before_request
 def protect_post_requests():
+    load_runtime_settings()
     if should_auto_backup():
         maybe_auto_backup()
     if request.method not in {'POST', 'PUT', 'PATCH', 'DELETE'}:
@@ -193,6 +195,7 @@ for p, d in [
     ('reviews.json', []),
     ('coupons.json', []),
     ('invoices.json', {'last_no': 0, 'items': {}}),
+    (SETTINGS_STORE_FILE, {}),
 ]:
     _init(p, d)
 
@@ -201,6 +204,44 @@ def _r(p, default):
 
 def _w(p, data):
     write_data(p, data)
+
+def read_settings():
+    return _as_dict(_r(SETTINGS_STORE_FILE, {}))
+
+def write_settings(data):
+    try:
+        return _w(SETTINGS_STORE_FILE, _as_dict(data, {}))
+    except Exception:
+        app.logger.warning('Could not persist settings to data store', exc_info=True)
+        return False
+
+def settings_value(key, default=''):
+    value = read_settings().get(key)
+    if value not in (None, ''):
+        return value
+    return os.environ.get(key, default)
+
+def _apply_runtime_settings(settings=None):
+    settings = _as_dict(settings if settings is not None else read_settings())
+    for key, value in settings.items():
+        if key in SETTINGS_ENV_KEYS and value not in (None, ''):
+            os.environ[key] = str(value)
+    global PROMPTPAY_PHONE, COMPANY_NAME, PREFERRED_SCHEME
+    PROMPTPAY_PHONE = settings_value('PROMPTPAY_PHONE', PROMPTPAY_PHONE)
+    COMPANY_NAME = settings_value('COMPANY_NAME', COMPANY_NAME)
+    PREFERRED_SCHEME = settings_value('PREFERRED_SCHEME', PREFERRED_SCHEME)
+
+def load_runtime_settings():
+    _apply_runtime_settings()
+
+def current_promptpay_phone():
+    return settings_value('PROMPTPAY_PHONE', PROMPTPAY_PHONE)
+
+def current_company_name():
+    return settings_value('COMPANY_NAME', COMPANY_NAME)
+
+def current_preferred_scheme():
+    return settings_value('PREFERRED_SCHEME', PREFERRED_SCHEME)
 
 def _as_list(value, default=None):
     return value if isinstance(value, list) else (default if default is not None else [])
@@ -907,7 +948,8 @@ def uploaded_task_files(task):
 
 def get_webhook_url():
     base = request.url_root.rstrip('/')
-    if PREFERRED_SCHEME: base = base.replace('http://', f'{PREFERRED_SCHEME}://')
+    preferred_scheme = current_preferred_scheme()
+    if preferred_scheme: base = base.replace('http://', f'{preferred_scheme}://')
     elif request.headers.get('X-Forwarded-Proto') == 'https': base = base.replace('http://','https://')
     return f"{base}/webhook"
 
@@ -942,7 +984,7 @@ def admin_context(tasks_override=None):
         tickets=tickets,
         ticket_stats={'total': len(tickets), 'active': sum(1 for t in ticket_rows if t.get('status')=='active'),
                       'checked_in': sum(1 for t in ticket_rows if t.get('status')=='checked_in')},
-        stamps_to_reward=STAMPS_TO_REWARD, promptpay_phone=PROMPTPAY_PHONE,
+        stamps_to_reward=STAMPS_TO_REWARD, promptpay_phone=current_promptpay_phone(),
         calendar=cal, ya=yearly_analytics(all_tasks, current_year, cal),
         queue_tasks=get_queue_with_tasks(all_tasks, cal),
         qr_image=get_qr_image(), all_slips=slips,
@@ -1213,9 +1255,10 @@ def payment(task_id):
         request.args.get('part', ''),
     )
     qr_image = get_qr_image()
-    payload = generate_promptpay_payload(PROMPTPAY_PHONE, amount) if not qr_image else ''
+    promptpay_phone = current_promptpay_phone()
+    payload = generate_promptpay_payload(promptpay_phone, amount) if not qr_image else ''
     return render_template('payment.html', task=task, ticket_code=code,
-                           promptpay_payload=payload, promptpay_phone=PROMPTPAY_PHONE,
+                           promptpay_payload=payload, promptpay_phone=promptpay_phone,
                            amount=amount, qr_image=qr_image,
                            slips=slips_for_task(task_id))  # FIX 4: slips= list
 
@@ -1238,7 +1281,7 @@ def upload_slip(task_id):
     send_line_admin_notification(task, f"Payment slip uploaded for {task.get('sn','')} amount {request.form.get('amount','')}")
     tickets = read_tickets(); code = next((c for c,tk in tickets.items() if tk['task_id']==task_id), '')
     return render_template('payment.html', task=task, ticket_code=code,
-                           promptpay_payload='', promptpay_phone=PROMPTPAY_PHONE,
+                           promptpay_payload='', promptpay_phone=current_promptpay_phone(),
                            amount=None, qr_image=get_qr_image(),
                            slips=slips_for_task(task_id),  # FIX 4
                            slip_uploaded=True)
@@ -1251,8 +1294,8 @@ def order_pdf(task_id):
         if not task: return 'ไม่พบออเดอร์', 404
         tickets = read_tickets(); code = next((c for c,tk in tickets.items() if tk['task_id']==task_id), '')
         amount = request.args.get('amount', type=float)
-        qr_img = get_qr_image(); payload = generate_promptpay_payload(PROMPTPAY_PHONE, amount) if (amount and not qr_img) else ''
-        pdf_bytes = generate_order_pdf(task, code, payload, COMPANY_NAME)
+        qr_img = get_qr_image(); payload = generate_promptpay_payload(current_promptpay_phone(), amount) if (amount and not qr_img) else ''
+        pdf_bytes = generate_order_pdf(task, code, payload, current_company_name())
         resp = make_response(pdf_bytes)
         resp.headers['Content-Type'] = 'application/pdf'
         resp.headers['Content-Disposition'] = f'attachment; filename="order_{task_id[-6:]}.pdf"'
@@ -1268,8 +1311,8 @@ def admin_order_pdf(task_id):
     if not task: return 'ไม่พบ', 404
     tickets = read_tickets(); code = next((c for c,tk in tickets.items() if tk['task_id']==task_id), '')
     inc_qr = request.args.get('qr','0') == '1'; amount = request.args.get('amount', type=float)
-    qr_img = get_qr_image(); payload = generate_promptpay_payload(PROMPTPAY_PHONE, amount) if (inc_qr and not qr_img) else ''
-    pdf_bytes = generate_order_pdf(task, code, payload, COMPANY_NAME)
+    qr_img = get_qr_image(); payload = generate_promptpay_payload(current_promptpay_phone(), amount) if (inc_qr and not qr_img) else ''
+    pdf_bytes = generate_order_pdf(task, code, payload, current_company_name())
     resp = make_response(pdf_bytes)
     resp.headers['Content-Type'] = 'application/pdf'
     resp.headers['Content-Disposition'] = f'attachment; filename="order_{task_id[-6:]}.pdf"'
@@ -1284,7 +1327,7 @@ def admin_invoice(task_id):
     inv = invoice_for_task(task)
     inv_task = {**task, 'title': f"Invoice {inv['invoice_no']} - {task.get('title','')}",
                 'description': f"Subtotal: {inv['subtotal']:.2f}\nVAT {inv['vat_rate']:.1f}%: {inv['vat']:.2f}\nTotal: {inv['total']:.2f}"}
-    pdf_bytes = generate_order_pdf(inv_task, '', '', COMPANY_NAME)
+    pdf_bytes = generate_order_pdf(inv_task, '', '', current_company_name())
     resp = make_response(pdf_bytes)
     resp.headers['Content-Type'] = 'application/pdf'
     resp.headers['Content-Disposition'] = f'attachment; filename="{inv["invoice_no"]}.pdf"'
@@ -1354,7 +1397,7 @@ def contact():
         name = request.form.get('name','').strip(); email = request.form.get('email','').strip()
         phone = request.form.get('phone','').strip()
         if name and (email or phone): sent = True
-    return render_template('contact.html', sent=sent, promptpay_phone=PROMPTPAY_PHONE, active_page='contact')
+    return render_template('contact.html', sent=sent, promptpay_phone=current_promptpay_phone(), active_page='contact')
 
 @app.route('/gallery')
 def gallery():
@@ -1766,7 +1809,7 @@ def api_yearly(year):
 
 SETTINGS_ENV_KEYS = [
     'LINE_CHANNEL_ACCESS_TOKEN', 'LINE_CHANNEL_SECRET', 'ADMIN_LINE_USER_ID',
-    'PROMPTPAY_PHONE', 'COMPANY_NAME', 'PREFERRED_SCHEME',
+    'PROMPTPAY_PHONE', 'COMPANY_NAME', 'PREFERRED_SCHEME', 'EXTERNAL_URL',
     'SMTP_HOST', 'SMTP_PORT', 'SMTP_USER', 'SMTP_PASSWORD', 'SMTP_FROM', 'SMTP_TLS',
     'TWILIO_ACCOUNT_SID', 'TWILIO_AUTH_TOKEN', 'TWILIO_FROM',
 ]
@@ -1776,24 +1819,35 @@ def _read_env_values(path='.env'):
     order = []
     if not os.path.exists(path):
         return values, order
-    with open(path, encoding='utf-8') as f:
-        for line in f:
-            stripped = line.strip()
-            if not stripped or stripped.startswith('#') or '=' not in stripped:
-                continue
-            key, value = stripped.split('=', 1)
-            values[key] = value
-            if key not in order:
-                order.append(key)
+    try:
+        with open(path, encoding='utf-8') as f:
+            for line in f:
+                stripped = line.strip()
+                if not stripped or stripped.startswith('#') or '=' not in stripped:
+                    continue
+                key, value = stripped.split('=', 1)
+                values[key] = value
+                if key not in order:
+                    order.append(key)
+    except OSError:
+        return values, order
     return values, order
 
 def _write_env_values(values, order, path='.env'):
+    if os.environ.get('VERCEL') or os.environ.get('READ_ONLY_ENV_FILE') == '1':
+        return False
     keys = order + sorted(k for k in values if k not in order)
-    with open(path, 'w', encoding='utf-8') as f:
-        for key in keys:
-            f.write(f"{key}={values[key]}\n")
+    try:
+        with open(path, 'w', encoding='utf-8') as f:
+            for key in keys:
+                f.write(f"{key}={values[key]}\n")
+        return True
+    except OSError:
+        app.logger.warning('Could not write settings to %s', path, exc_info=True)
+        return False
 
 def save_settings_env_from_form(keys):
+    stored_settings = read_settings()
     values, order = _read_env_values()
     changed = False
     for key in keys:
@@ -1803,12 +1857,15 @@ def save_settings_env_from_form(keys):
         value = value.strip()
         if not value:
             continue
+        stored_settings[key] = value
         values[key] = value
         os.environ[key] = value
         if key not in order:
             order.append(key)
         changed = True
     if changed:
+        write_settings(stored_settings)
+        _apply_runtime_settings(stored_settings)
         _write_env_values(values, order)
     return changed
 
@@ -1823,7 +1880,7 @@ def line_config():
                            token=os.environ.get('LINE_CHANNEL_ACCESS_TOKEN',''),
                            secret=os.environ.get('LINE_CHANNEL_SECRET',''),
                            admin_id=os.environ.get('ADMIN_LINE_USER_ID',''),
-                           promptpay=PROMPTPAY_PHONE, company=COMPANY_NAME, scheme=PREFERRED_SCHEME,
+                           promptpay=current_promptpay_phone(), company=current_company_name(), scheme=current_preferred_scheme(),
                            smtp_host=os.environ.get('SMTP_HOST',''), smtp_port=os.environ.get('SMTP_PORT','587'),
                            smtp_user=os.environ.get('SMTP_USER',''), smtp_password=os.environ.get('SMTP_PASSWORD',''),
                            smtp_from=os.environ.get('SMTP_FROM',''), smtp_tls=os.environ.get('SMTP_TLS','1'),
@@ -2087,7 +2144,7 @@ def admin_spec_sheet(task_id):
     tasks = read_tasks()
     task  = next((t for t in tasks if t['id'] == task_id), None)
     if not task: return 'ไม่พบ', 404
-    pdf_bytes = generate_spec_sheet(task, COMPANY_NAME)
+    pdf_bytes = generate_spec_sheet(task, current_company_name())
     resp = make_response(pdf_bytes)
     resp.headers['Content-Type'] = 'application/pdf'
     resp.headers['Content-Disposition'] = f'inline; filename="spec_{task_id[-6:]}.pdf"'
