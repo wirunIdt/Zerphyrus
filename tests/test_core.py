@@ -324,6 +324,8 @@ class AppHelperTests(unittest.TestCase):
     def test_pdf_generation_smoke(self):
         task = self.sample_task()
         task["specs_3d"] = {"material": "PLA", "quantity": "1", "files": []}
+        self.assertEqual(pdf_generator.FONT_NORMAL, "_ThaiN")
+        self.assertIn("NotoSansThai-Regular.ttf", pdf_generator.FONT_SOURCE.replace("\\", "/"))
         self.assertTrue(pdf_generator.generate_order_pdf(task).startswith(b"%PDF"))
         self.assertTrue(pdf_generator.generate_spec_sheet(task).startswith(b"%PDF"))
 

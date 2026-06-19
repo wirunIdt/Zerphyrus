@@ -4,6 +4,7 @@ Uses reportlab (pure Python, no wkhtmltopdf needed)
 """
 import io, os
 from datetime import datetime
+from pathlib import Path
 from reportlab.lib.pagesizes import A4
 from reportlab.lib.units import mm
 from reportlab.lib import colors
@@ -17,8 +18,14 @@ from reportlab.lib.enums import TA_LEFT, TA_CENTER, TA_RIGHT
 # ── Font: try Thai, fallback Helvetica ─────────────────────────────────────────
 FONT_NORMAL = 'Helvetica'
 FONT_BOLD   = 'Helvetica-Bold'
+FONT_SOURCE = 'Helvetica'
+
+_BASE_DIR = Path(__file__).resolve().parent
+_FONT_DIR = _BASE_DIR / 'fonts'
 
 _THAI_PATHS = [
+    (_FONT_DIR / 'NotoSansThai-Regular.ttf',
+     _FONT_DIR / 'NotoSansThai-Bold.ttf'),
     ('/usr/share/fonts/truetype/tlwg/Loma.ttf',
      '/usr/share/fonts/truetype/tlwg/Loma-Bold.ttf'),
     ('/usr/share/fonts/truetype/freefont/FreeSerif.ttf',
@@ -27,11 +34,14 @@ _THAI_PATHS = [
     ('C:/Windows/Fonts/arial.ttf',  'C:/Windows/Fonts/arialbd.ttf'),
 ]
 for n, b in _THAI_PATHS:
+    n = str(n)
+    b = str(b) if b else ''
     if os.path.exists(n):
         try:
             pdfmetrics.registerFont(TTFont('_ThaiN', n))
             pdfmetrics.registerFont(TTFont('_ThaiB', b if b and os.path.exists(b) else n))
             FONT_NORMAL, FONT_BOLD = '_ThaiN', '_ThaiB'
+            FONT_SOURCE = n
             break
         except Exception:
             pass
@@ -72,7 +82,7 @@ def _border():
 def P(txt, sz=9, bold=False, clr=colors.black, align=TA_LEFT, leading=None):
     st = ParagraphStyle('', fontName=FONT_BOLD if bold else FONT_NORMAL,
                         fontSize=sz, textColor=clr, alignment=align,
-                        leading=leading or sz*1.5, wordWrap='CJK')
+                        leading=leading or sz*1.5)
     return Paragraph(str(txt or ''), st)
 
 def sp(h=3): return Spacer(1, h*mm)
