@@ -21,7 +21,7 @@ from flask import (Flask, render_template, request, redirect, url_for,
 from werkzeug.utils import secure_filename
 from werkzeug.security import generate_password_hash, check_password_hash
 
-from data_store import get_store, init_data, preload_data, read_data, write_data
+from data_store import data_path, get_store, init_data, preload_data, read_data, write_data
 from promptpay import generate_promptpay_payload
 from queue_manager import (
     read_queue, read_calendar, write_calendar,
@@ -203,7 +203,7 @@ def _r(p, default):
     return read_data(p, default)
 
 def _w(p, data):
-    write_data(p, data)
+    return write_data(p, data)
 
 def read_settings():
     return _as_dict(_r(SETTINGS_STORE_FILE, {}))
@@ -691,8 +691,10 @@ def create_backup_zip(auto=False):
     fname = f"zerphyrus_{'auto_' if auto else ''}{stamp}.zip"
     path = os.path.join(BACKUP_FOLDER, fname)
     with zipfile.ZipFile(path, 'w', zipfile.ZIP_DEFLATED) as z:
-        for name in [f for f in os.listdir('.') if f.endswith('.json')]:
-            z.write(name, name)
+        for name in DATA_EXPORT_FILES:
+            src = data_path(name)
+            if os.path.exists(src):
+                z.write(src, name)
         for root, _, files in os.walk(UPLOAD_FOLDER):
             for fn in files:
                 fp = os.path.join(root, fn)
@@ -715,8 +717,9 @@ def export_data_bundle(include_uploads=False):
     with zipfile.ZipFile(archive, 'w', zipfile.ZIP_DEFLATED) as z:
         z.writestr('zerphyrus_data.json', json.dumps(payload, ensure_ascii=False, indent=2))
         for name in DATA_EXPORT_FILES:
-            if os.path.exists(name):
-                z.write(name, name)
+            src = data_path(name)
+            if os.path.exists(src):
+                z.write(src, name)
         for root, _, files in os.walk(UPLOAD_FOLDER):
             for fn in files:
                 fp = os.path.join(root, fn)
@@ -2043,26 +2046,72 @@ def cart_checkout():
 @app.route('/admin/products')
 @admin_required
 def admin_products():
-    return render_template('admin_products.html', products=read_products(), username=session.get('username',''))
+    return render_template('admin_products.html', products=read_products(), username=session.get('username',''), active_page='admin_products')
+
+def product_json_error(message, status=400, code='invalid'):
+    return jsonify({'status': 'error', 'error': message, 'code': code}), status
+
+def parse_product_form(existing=None):
+    existing = existing or {}
+    name = request.form.get('name', existing.get('name', '')).strip()
+    if not name:
+        return None, product_json_error('กรุณากรอกชื่อสินค้า', 400, 'name_required')
+
+    price_raw = request.form.get('price', existing.get('price', 0))
+    if isinstance(price_raw, str):
+        price_raw = price_raw.replace(',', '').strip()
+    try:
+        price = float(price_raw or 0)
+    except (TypeError, ValueError):
+        return None, product_json_error('ราคาต้องเป็นตัวเลข', 400, 'invalid_price')
+    if price < 0:
+        return None, product_json_error('ราคาต้องไม่ติดลบ', 400, 'invalid_price')
+
+    stock_raw = request.form.get('stock', '')
+    if stock_raw == '' and 'stock' in existing and 'stock' not in request.form:
+        stock = existing.get('stock')
+    elif stock_raw.strip() == '':
+        stock = None
+    else:
+        try:
+            stock = int(float(stock_raw.replace(',', '').strip()))
+        except (TypeError, ValueError):
+            return None, product_json_error('สต็อกต้องเป็นตัวเลขจำนวนเต็ม', 400, 'invalid_stock')
+        if stock < 0:
+            return None, product_json_error('สต็อกต้องไม่ติดลบ', 400, 'invalid_stock')
+
+    return {
+        'name': name,
+        'description': request.form.get('description', existing.get('description', '')).strip(),
+        'price': price,
+        'category': request.form.get('category', existing.get('category', '')).strip(),
+        'stock': stock,
+        'active': request.form.get('active', 'off') == 'on',
+    }, None
+
+def save_products_or_error(products):
+    if write_products(products):
+        return None
+    app.logger.error('Could not persist products.json via %s', get_store().__class__.__name__)
+    return product_json_error('บันทึกสินค้าไม่สำเร็จ กรุณาตรวจสอบฐานข้อมูลหรือไฟล์ products.json', 500, 'persist_failed')
 
 @app.route('/admin/products/add', methods=['POST'])
 @admin_required
 def admin_product_add():
     products = read_products(); pid = str(int(datetime.now().timestamp()*1000))
-    stock_val = request.form.get('stock','').strip()
-    product = {'id':pid, 'name':request.form.get('name','').strip(),
-               'description':request.form.get('description','').strip(),
-               'price':float(request.form.get('price',0) or 0),
-               'category':request.form.get('category','').strip(),
-               'stock':int(stock_val) if stock_val else None,
-               'active':request.form.get('active')=='on', 'image':'',
-               'createdAt':datetime.now().isoformat()}
+    values, error = parse_product_form()
+    if error:
+        return error
+    product = {'id': pid, **values, 'image': '', 'createdAt': datetime.now().isoformat()}
     file = request.files.get('image')
     if file and file.filename and allowed_file(file.filename):
         ext = file.filename.rsplit('.',1)[1].lower(); fname = f'{pid}.{ext}'
         _, thumb = save_optimized_upload(file, PRODUCT_IMG_FOLDER, fname)
         product['image'] = f'products/{fname}'; product['thumb'] = f'products/{thumb}' if thumb else product['image']
-    products.insert(0, product); write_products(products)
+    products.insert(0, product)
+    error = save_products_or_error(products)
+    if error:
+        return error
     return jsonify({'status':'ok','id':pid,'name':product['name']})
 
 @app.route('/admin/products/edit/<pid>', methods=['POST'])
@@ -2071,14 +2120,10 @@ def admin_product_edit(pid):
     products = read_products(); updated_name = ''
     for p in products:
         if p['id']==pid:
-            p['name'] = request.form.get('name',p['name']).strip()
-            p['description'] = request.form.get('description',p.get('description','')).strip()
-            try: p['price'] = float(request.form.get('price',p['price']) or 0)
-            except: pass
-            stock_val = request.form.get('stock','').strip()
-            p['stock'] = int(stock_val) if stock_val else None
-            p['category'] = request.form.get('category',p.get('category','')).strip()
-            p['active'] = request.form.get('active','off') == 'on'
+            values, error = parse_product_form(p)
+            if error:
+                return error
+            p.update(values)
             updated_name = p['name']
             file = request.files.get('image')
             if file and file.filename and allowed_file(file.filename):
@@ -2086,12 +2131,23 @@ def admin_product_edit(pid):
                 _, thumb = save_optimized_upload(file, PRODUCT_IMG_FOLDER, fname)
                 p['image'] = f'products/{fname}'; p['thumb'] = f'products/{thumb}' if thumb else p['image']
             break
-    write_products(products); return jsonify({'status':'ok','name':updated_name})
+    if not updated_name:
+        return product_json_error('ไม่พบสินค้า', 404, 'not_found')
+    error = save_products_or_error(products)
+    if error:
+        return error
+    return jsonify({'status':'ok','name':updated_name})
 
 @app.route('/admin/products/delete/<pid>', methods=['POST'])
 @admin_required
 def admin_product_delete(pid):
-    write_products([p for p in read_products() if p['id']!=pid])
+    products = read_products()
+    next_products = [p for p in products if p['id']!=pid]
+    if len(next_products) == len(products):
+        return product_json_error('ไม่พบสินค้า', 404, 'not_found')
+    error = save_products_or_error(next_products)
+    if error:
+        return error
     for ext in ALLOWED_IMG:
         path = os.path.join(PRODUCT_IMG_FOLDER, f'{pid}.{ext}')
         if os.path.exists(path): os.remove(path)
@@ -2102,10 +2158,16 @@ def admin_product_delete(pid):
 @app.route('/admin/products/toggle/<pid>', methods=['POST'])
 @admin_required
 def admin_product_toggle(pid):
-    products = read_products()
+    products = read_products(); found = False
     for p in products:
-        if p['id']==pid: p['active'] = not p.get('active',True); break
-    write_products(products); return jsonify({'status':'ok'})
+        if p['id']==pid:
+            p['active'] = not p.get('active',True); found = True; break
+    if not found:
+        return product_json_error('ไม่พบสินค้า', 404, 'not_found')
+    error = save_products_or_error(products)
+    if error:
+        return error
+    return jsonify({'status':'ok'})
 
 @app.route('/admin/export_excel')
 @admin_required

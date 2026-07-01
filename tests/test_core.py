@@ -17,6 +17,7 @@ TMP = tempfile.TemporaryDirectory()
 OLD_CWD = os.getcwd()
 
 os.chdir(TMP.name)
+os.environ.setdefault("DATA_DIR", TMP.name)
 sys.path.insert(0, str(PROJECT))
 
 promptpay = importlib.import_module("promptpay")
@@ -422,6 +423,67 @@ class FlaskRouteSmokeTests(unittest.TestCase):
         })
         self.assertEqual(response.status_code, 302)
         self.assertNotIn("bad user", app_module.read_users())
+
+    def test_admin_product_add_persists_and_validates(self):
+        with self.client.session_transaction() as sess:
+            sess["username"] = "admin"
+
+        response = self.client.post("/admin/products/add", data={
+            "csrf_token": "test-token",
+            "name": "PLA spool",
+            "description": "Material",
+            "price": "1,299",
+            "stock": "7",
+            "category": "Filament",
+            "active": "on",
+        })
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.get_json()["status"], "ok")
+        products = app_module.read_products()
+        self.assertEqual(len(products), 1)
+        self.assertEqual(products[0]["name"], "PLA spool")
+        self.assertEqual(products[0]["price"], 1299)
+        self.assertTrue(products[0]["active"])
+
+        response = self.client.post("/admin/products/add", data={
+            "csrf_token": "test-token",
+            "name": "Broken stock",
+            "price": "99",
+            "stock": "many",
+        })
+        self.assertEqual(response.status_code, 400)
+        self.assertEqual(response.get_json()["code"], "invalid_stock")
+        self.assertEqual(len(app_module.read_products()), 1)
+
+    def test_admin_product_add_reports_persistence_failure(self):
+        class FailingStore:
+            def read(self, name, default=None):
+                return [] if name == "products.json" else default
+
+            def read_many(self, names):
+                return {}
+
+            def write(self, name, data):
+                return False
+
+            def init_file(self, name, default):
+                return None
+
+        original_store = data_store._STORE
+        data_store._STORE = FailingStore()
+        try:
+            with self.client.session_transaction() as sess:
+                sess["username"] = "admin"
+
+            response = self.client.post("/admin/products/add", data={
+                "csrf_token": "test-token",
+                "name": "Unwritten",
+                "price": "99",
+            })
+            self.assertEqual(response.status_code, 500)
+            self.assertEqual(response.get_json()["code"], "persist_failed")
+        finally:
+            data_store._STORE = original_store
 
     def test_line_config_saves_line_and_twilio_settings(self):
         Path(".env").write_text("SECRET_KEY=keep-me\n", encoding="utf-8")

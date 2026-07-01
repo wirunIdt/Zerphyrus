@@ -16,6 +16,15 @@ except Exception:  # pragma: no cover - helpers are optional outside Flask.
 
 JSON_LOCK_TIMEOUT = int(os.environ.get("JSON_LOCK_TIMEOUT", "8"))
 _THREAD_LOCK = RLock()
+DEFAULT_DATA_DIR = Path(__file__).resolve().parents[1]
+DATA_DIR = Path(os.environ.get("DATA_DIR") or DEFAULT_DATA_DIR).resolve()
+
+
+def data_path(name):
+    path = Path(name)
+    if path.is_absolute():
+        return path
+    return DATA_DIR / path
 
 
 @contextmanager
@@ -46,27 +55,34 @@ def json_file_lock(path):
 
 class JsonDataStore:
     def read(self, name, default=None):
+        path = data_path(name)
         try:
-            with json_file_lock(name):
-                with open(name, "r", encoding="utf-8") as f:
+            with json_file_lock(path):
+                with open(path, "r", encoding="utf-8") as f:
                     return json.load(f)
         except Exception:
             return default
 
     def write(self, name, data):
-        with json_file_lock(name):
-            tmp = f"{name}.{os.getpid()}.tmp"
+        path = data_path(name)
+        path.parent.mkdir(parents=True, exist_ok=True)
+        with json_file_lock(path):
+            tmp = path.with_name(f"{path.name}.{os.getpid()}.tmp")
             with open(tmp, "w", encoding="utf-8") as f:
                 json.dump(data, f, ensure_ascii=False, indent=2)
-            os.replace(tmp, name)
+            os.replace(tmp, path)
+        return True
 
     def read_many(self, names):
         return {name: self.read(name, None) for name in names}
 
     def init_file(self, name, default):
-        if not Path(name).exists():
-            with open(name, "w", encoding="utf-8") as f:
+        path = data_path(name)
+        if not path.exists():
+            path.parent.mkdir(parents=True, exist_ok=True)
+            with open(path, "w", encoding="utf-8") as f:
                 json.dump(default, f, ensure_ascii=False, indent=2)
+        return True
 
 
 class SupabaseKVStore:
@@ -183,7 +199,7 @@ def read_data(name, default=None):
 def write_data(name, data):
     ok = get_store().write(name, data)
     cache = _request_cache()
-    if cache is not None:
+    if ok and cache is not None:
         cache[name] = data
     return ok
 
