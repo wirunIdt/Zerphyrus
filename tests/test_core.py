@@ -485,6 +485,35 @@ class FlaskRouteSmokeTests(unittest.TestCase):
         finally:
             data_store._STORE = original_store
 
+    def test_admin_product_add_reports_deploy_persistence_config_issue(self):
+        original_store = data_store._STORE
+        data_store._STORE = None
+        os.environ["VERCEL"] = "1"
+        os.environ["DATA_BACKEND"] = "supabase"
+        os.environ["SUPABASE_URL"] = "https://example.supabase.co"
+        os.environ["SUPABASE_ANON_KEY"] = "anon"
+        os.environ.pop("SUPABASE_SERVICE_ROLE_KEY", None)
+        try:
+            with self.client.session_transaction() as sess:
+                sess["username"] = "admin"
+
+            response = self.client.post("/admin/products/add", data={
+                "csrf_token": "test-token",
+                "name": "Deploy Product",
+                "price": "99",
+            })
+            self.assertEqual(response.status_code, 500)
+            self.assertEqual(response.get_json()["code"], "persistence_config")
+            self.assertIn("SUPABASE_SERVICE_ROLE_KEY", response.get_json()["error"])
+
+            health = self.client.get("/healthz").get_json()
+            self.assertEqual(health["status"], "warning")
+            self.assertFalse(health["data_persistence_ok"])
+        finally:
+            for key in ["VERCEL", "DATA_BACKEND", "SUPABASE_URL", "SUPABASE_ANON_KEY", "SUPABASE_SERVICE_ROLE_KEY"]:
+                os.environ.pop(key, None)
+            data_store._STORE = original_store
+
     def test_line_config_saves_line_and_twilio_settings(self):
         Path(".env").write_text("SECRET_KEY=keep-me\n", encoding="utf-8")
         with self.client.session_transaction() as sess:

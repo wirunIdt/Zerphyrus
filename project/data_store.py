@@ -92,6 +92,7 @@ class SupabaseKVStore:
         self.table = os.environ.get("SUPABASE_KV_TABLE", "zerphyrus_kv")
         self.timeout = int(os.environ.get("SUPABASE_TIMEOUT", "12"))
         self.strict = strict
+        self.last_error = ""
 
     @property
     def headers(self):
@@ -114,10 +115,16 @@ class SupabaseKVStore:
             resp.raise_for_status()
             rows = resp.json()
             return rows[0]["data"] if rows else default
-        except (requests.RequestException, ValueError, KeyError, IndexError):
+        except (requests.RequestException, ValueError, KeyError, IndexError) as exc:
+            self.last_error = str(exc)
             return default
 
     def write(self, name, data):
+        if not os.environ.get("SUPABASE_SERVICE_ROLE_KEY"):
+            self.last_error = "SUPABASE_SERVICE_ROLE_KEY is required for writes to zerphyrus_kv"
+            if self.strict:
+                raise RuntimeError(self.last_error)
+            return False
         try:
             resp = requests.post(
                 f"{self.url}/rest/v1/{self.table}",
@@ -127,8 +134,14 @@ class SupabaseKVStore:
                 timeout=self.timeout,
             )
             resp.raise_for_status()
+            self.last_error = ""
             return True
-        except requests.RequestException:
+        except requests.RequestException as exc:
+            response = getattr(exc, "response", None)
+            detail = ""
+            if response is not None:
+                detail = f" HTTP {response.status_code}: {response.text[:300]}"
+            self.last_error = f"{exc}{detail}"
             if self.strict:
                 raise
             return False
@@ -146,7 +159,8 @@ class SupabaseKVStore:
             )
             resp.raise_for_status()
             return {row["name"]: row["data"] for row in resp.json()}
-        except (requests.RequestException, ValueError, KeyError, TypeError):
+        except (requests.RequestException, ValueError, KeyError, TypeError) as exc:
+            self.last_error = str(exc)
             return {}
 
     def init_file(self, name, default):

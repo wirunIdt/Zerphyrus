@@ -1,1 +1,13 @@
-[]
+[
+  {
+    "id": "1782921319025",
+    "name": "robotarm",
+    "description": "ace2 pro",
+    "price": 5000.0,
+    "category": "Robotics",
+    "stock": 3,
+    "active": true,
+    "image": "",
+    "createdAt": "2026-07-01T22:55:19.025347"
+  }
+]

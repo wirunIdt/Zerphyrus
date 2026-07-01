@@ -350,6 +350,17 @@ def data_shape_report():
         }
     return report
 
+def data_persistence_issue():
+    backend = os.environ.get('DATA_BACKEND', '').lower()
+    if os.environ.get('VERCEL') and backend != 'supabase':
+        return 'Vercel ต้องใช้ DATA_BACKEND=supabase เพราะ filesystem ของ serverless ไม่เหมาะกับข้อมูลถาวร'
+    if backend == 'supabase':
+        if not os.environ.get('SUPABASE_URL'):
+            return 'ตั้ง DATA_BACKEND=supabase แล้ว แต่ยังไม่มี SUPABASE_URL'
+        if not os.environ.get('SUPABASE_SERVICE_ROLE_KEY'):
+            return 'ตั้ง DATA_BACKEND=supabase แล้ว แต่ยังไม่มี SUPABASE_SERVICE_ROLE_KEY สำหรับเขียนข้อมูล'
+    return ''
+
 STATUS_FLOW = ['pending', 'quoted', 'approved', 'inprogress', 'printing', 'postprocessing', 'qc', 'ready', 'delivered', 'completed', 'cancelled']
 STATUS_LABELS = {
     'pending': 'Pending', 'quoted': 'Quoted', 'approved': 'Approved',
@@ -1232,13 +1243,17 @@ def uploaded_file(filename):
 def healthcheck():
     store = get_store()
     shapes = data_shape_report()
+    persistence_issue = data_persistence_issue()
     return jsonify({
-        'status': 'ok',
+        'status': 'warning' if persistence_issue else 'ok',
         'app': 'zerphyrus',
         'pdf_enabled': PDF_ENABLED,
         'line_enabled': LINE_ENABLED,
         'data_backend': os.environ.get('DATA_BACKEND', 'json'),
         'store': store.__class__.__name__,
+        'data_persistence_ok': not bool(persistence_issue),
+        'data_persistence_issue': persistence_issue,
+        'store_last_error': getattr(store, 'last_error', ''),
         'supabase_configured': bool(os.environ.get('SUPABASE_URL')),
         'supabase_service_role_configured': bool(os.environ.get('SUPABASE_SERVICE_ROLE_KEY')),
         'users_configured': bool(read_users()),
@@ -2090,10 +2105,18 @@ def parse_product_form(existing=None):
     }, None
 
 def save_products_or_error(products):
+    issue = data_persistence_issue()
+    if issue:
+        return product_json_error(issue, 500, 'persistence_config')
     if write_products(products):
         return None
-    app.logger.error('Could not persist products.json via %s', get_store().__class__.__name__)
-    return product_json_error('บันทึกสินค้าไม่สำเร็จ กรุณาตรวจสอบฐานข้อมูลหรือไฟล์ products.json', 500, 'persist_failed')
+    store = get_store()
+    detail = getattr(store, 'last_error', '')
+    app.logger.error('Could not persist products.json via %s: %s', store.__class__.__name__, detail)
+    message = 'บันทึกสินค้าไม่สำเร็จ กรุณาตรวจสอบฐานข้อมูลหรือไฟล์ products.json'
+    if detail:
+        message = f'{message}: {detail}'
+    return product_json_error(message, 500, 'persist_failed')
 
 @app.route('/admin/products/add', methods=['POST'])
 @admin_required
