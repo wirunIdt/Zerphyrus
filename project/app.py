@@ -156,7 +156,12 @@ def csrf_token():
 def inject_globals():
     try: cc = cart_count()
     except: cc = 0
-    return dict(cart_count=cc, company_name=current_company_name(), csrf_token=csrf_token)
+    return dict(
+        cart_count=cc,
+        company_name=current_company_name(),
+        csrf_token=csrf_token,
+        upload_url=upload_url,
+    )
 
 @app.before_request
 def protect_post_requests():
@@ -359,6 +364,11 @@ def data_persistence_issue():
             return 'ตั้ง DATA_BACKEND=supabase แล้ว แต่ยังไม่มี SUPABASE_URL'
         if not os.environ.get('SUPABASE_SERVICE_ROLE_KEY'):
             return 'ตั้ง DATA_BACKEND=supabase แล้ว แต่ยังไม่มี SUPABASE_SERVICE_ROLE_KEY สำหรับเขียนข้อมูล'
+    return ''
+
+def upload_persistence_issue():
+    if os.environ.get('VERCEL') and not storage_enabled():
+        return 'Vercel ต้องใช้ Supabase Storage สำหรับไฟล์อัปโหลด ตั้ง SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY หรือ SUPABASE_ANON_KEY และ SUPABASE_STORAGE_BUCKET'
     return ''
 
 STATUS_FLOW = ['pending', 'quoted', 'approved', 'inprogress', 'printing', 'postprocessing', 'qc', 'ready', 'delivered', 'completed', 'cancelled']
@@ -665,6 +675,19 @@ def upload_storage_path_for(folder, filename):
     path = os.path.join(folder, filename)
     return os.path.relpath(path, UPLOAD_FOLDER).replace('\\', '/')
 
+def upload_url(path):
+    if not path:
+        return ''
+    path = str(path).strip()
+    if path.startswith(('http://', 'https://', '//', 'data:')):
+        return path
+    storage_path = path.replace('\\', '/').lstrip('/')
+    if storage_enabled() and os.environ.get('SUPABASE_STORAGE_PUBLIC', '0') == '1':
+        url = storage_public_url(storage_path)
+        if url:
+            return url
+    return f'/uploads/{storage_path}'
+
 def sync_local_upload_to_storage(path, content_type=None):
     if not storage_enabled():
         return None
@@ -680,6 +703,7 @@ def save_uploaded_file(file, folder, filename):
 
 def save_optimized_upload(file, folder, filename):
     path = os.path.join(folder, filename)
+    os.makedirs(os.path.dirname(path), exist_ok=True)
     file.save(path)
     optimize_image(path)
     sync_local_upload_to_storage(path, getattr(file, 'mimetype', None))
@@ -871,6 +895,24 @@ def backfill_sn():
 
 def allowed_file(filename):
     return '.' in filename and filename.rsplit('.', 1)[1].lower() in ALLOWED_IMG
+
+def save_product_image_or_error(file, pid):
+    if not file or not file.filename:
+        return {}, None
+    if not allowed_file(file.filename):
+        return None, product_json_error('รองรับเฉพาะไฟล์รูป PNG, JPG, JPEG, GIF หรือ WEBP', 400, 'invalid_image')
+    issue = upload_persistence_issue()
+    if issue:
+        return None, product_json_error(issue, 500, 'upload_config')
+    try:
+        ext = file.filename.rsplit('.', 1)[1].lower()
+        fname = f'{pid}.{ext}'
+        _, thumb = save_optimized_upload(file, PRODUCT_IMG_FOLDER, fname)
+        image = f'products/{fname}'
+        return {'image': image, 'thumb': f'products/{thumb}' if thumb else image}, None
+    except Exception as exc:
+        app.logger.exception('Could not save product image')
+        return None, product_json_error(f'บันทึกรูปสินค้าไม่สำเร็จ: {exc}', 500, 'image_save_failed')
 
 # ── FIX 2: get_qr_image returns correct subpath 'qr/promptpay.ext' ────────────
 def get_qr_image():
@@ -1226,7 +1268,9 @@ def tracking():
 def uploaded_file(filename):
     local_path = os.path.join(UPLOAD_FOLDER, filename)
     if os.path.exists(local_path):
-        return send_from_directory(UPLOAD_FOLDER, filename)
+        resp = send_from_directory(UPLOAD_FOLDER, filename, max_age=31536000)
+        resp.headers.setdefault('Cache-Control', 'public, max-age=31536000, immutable')
+        return resp
     if storage_enabled():
         url = storage_public_url(filename)
         if os.environ.get('SUPABASE_STORAGE_PUBLIC', '0') == '1' and url:
@@ -1235,6 +1279,7 @@ def uploaded_file(filename):
         if data is not None:
             resp = make_response(data)
             resp.headers['Content-Type'] = mimetypes.guess_type(filename)[0] or 'application/octet-stream'
+            resp.headers['Cache-Control'] = 'public, max-age=31536000, immutable'
             return resp
     abort(404)
 
@@ -1244,8 +1289,9 @@ def healthcheck():
     store = get_store()
     shapes = data_shape_report()
     persistence_issue = data_persistence_issue()
+    upload_issue = upload_persistence_issue()
     return jsonify({
-        'status': 'warning' if persistence_issue else 'ok',
+        'status': 'warning' if (persistence_issue or upload_issue) else 'ok',
         'app': 'zerphyrus',
         'pdf_enabled': PDF_ENABLED,
         'line_enabled': LINE_ENABLED,
@@ -1253,6 +1299,10 @@ def healthcheck():
         'store': store.__class__.__name__,
         'data_persistence_ok': not bool(persistence_issue),
         'data_persistence_issue': persistence_issue,
+        'upload_persistence_ok': not bool(upload_issue),
+        'upload_persistence_issue': upload_issue,
+        'storage_configured': storage_enabled(),
+        'storage_public': os.environ.get('SUPABASE_STORAGE_PUBLIC', '0') == '1',
         'store_last_error': getattr(store, 'last_error', ''),
         'supabase_configured': bool(os.environ.get('SUPABASE_URL')),
         'supabase_service_role_configured': bool(os.environ.get('SUPABASE_SERVICE_ROLE_KEY')),
@@ -2126,11 +2176,10 @@ def admin_product_add():
     if error:
         return error
     product = {'id': pid, **values, 'image': '', 'createdAt': datetime.now().isoformat()}
-    file = request.files.get('image')
-    if file and file.filename and allowed_file(file.filename):
-        ext = file.filename.rsplit('.',1)[1].lower(); fname = f'{pid}.{ext}'
-        _, thumb = save_optimized_upload(file, PRODUCT_IMG_FOLDER, fname)
-        product['image'] = f'products/{fname}'; product['thumb'] = f'products/{thumb}' if thumb else product['image']
+    image_fields, error = save_product_image_or_error(request.files.get('image'), pid)
+    if error:
+        return error
+    product.update(image_fields)
     products.insert(0, product)
     error = save_products_or_error(products)
     if error:
@@ -2148,11 +2197,10 @@ def admin_product_edit(pid):
                 return error
             p.update(values)
             updated_name = p['name']
-            file = request.files.get('image')
-            if file and file.filename and allowed_file(file.filename):
-                ext = file.filename.rsplit('.',1)[1].lower(); fname = f'{pid}.{ext}'
-                _, thumb = save_optimized_upload(file, PRODUCT_IMG_FOLDER, fname)
-                p['image'] = f'products/{fname}'; p['thumb'] = f'products/{thumb}' if thumb else p['image']
+            image_fields, error = save_product_image_or_error(request.files.get('image'), pid)
+            if error:
+                return error
+            p.update(image_fields)
             break
     if not updated_name:
         return product_json_error('ไม่พบสินค้า', 404, 'not_found')

@@ -45,6 +45,8 @@ def reset_json():
         "PROMPTPAY_PHONE", "COMPANY_NAME", "PREFERRED_SCHEME", "EXTERNAL_URL",
         "SMTP_HOST", "SMTP_PORT", "SMTP_USER", "SMTP_PASSWORD", "SMTP_FROM", "SMTP_TLS",
         "TWILIO_ACCOUNT_SID", "TWILIO_AUTH_TOKEN", "TWILIO_FROM",
+        "SUPABASE_URL", "SUPABASE_ANON_KEY", "SUPABASE_SERVICE_ROLE_KEY",
+        "SUPABASE_STORAGE_BUCKET", "SUPABASE_STORAGE_PUBLIC",
     ]:
         os.environ.pop(key, None)
     app_module.PROMPTPAY_PHONE = "0812345678"
@@ -272,6 +274,20 @@ class AppHelperTests(unittest.TestCase):
         self.assertEqual(store.read("missing.json", {"fallback": True})["fallback"], True)
         self.assertEqual(storage_backend.normalize_storage_path("\\slips\\proof.png"), "slips/proof.png")
         self.assertFalse(storage_backend.storage_enabled())
+        self.assertEqual(app_module.upload_url("products/a.png"), "/uploads/products/a.png")
+
+        os.environ["SUPABASE_URL"] = "https://example.supabase.co"
+        os.environ["SUPABASE_ANON_KEY"] = "anon"
+        os.environ["SUPABASE_STORAGE_BUCKET"] = "uploads"
+        os.environ["SUPABASE_STORAGE_PUBLIC"] = "1"
+        try:
+            self.assertEqual(
+                app_module.upload_url("products/a.png"),
+                "https://example.supabase.co/storage/v1/object/public/uploads/products/a.png",
+            )
+        finally:
+            for key in ["SUPABASE_URL", "SUPABASE_ANON_KEY", "SUPABASE_STORAGE_BUCKET", "SUPABASE_STORAGE_PUBLIC"]:
+                os.environ.pop(key, None)
 
     def test_request_cache_preloads_data_once_per_request(self):
         class CountingStore:
@@ -454,6 +470,35 @@ class FlaskRouteSmokeTests(unittest.TestCase):
         self.assertEqual(response.status_code, 400)
         self.assertEqual(response.get_json()["code"], "invalid_stock")
         self.assertEqual(len(app_module.read_products()), 1)
+
+    def test_admin_product_add_saves_image_and_thumbnail(self):
+        old_upload = app_module.UPLOAD_FOLDER
+        old_products = app_module.PRODUCT_IMG_FOLDER
+        with tempfile.TemporaryDirectory() as tmp:
+            app_module.UPLOAD_FOLDER = tmp
+            app_module.PRODUCT_IMG_FOLDER = str(Path(tmp) / "products")
+            try:
+                with self.client.session_transaction() as sess:
+                    sess["username"] = "admin"
+
+                png = base64.b64decode(
+                    "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+/p9sAAAAASUVORK5CYII="
+                )
+                response = self.client.post("/admin/products/add", data={
+                    "csrf_token": "test-token",
+                    "name": "Photo Product",
+                    "price": "199",
+                    "image": (app_module._io.BytesIO(png), "photo.png"),
+                }, content_type="multipart/form-data")
+                self.assertEqual(response.status_code, 200)
+                product = app_module.read_products()[0]
+                self.assertEqual(product["image"], f"products/{product['id']}.png")
+                self.assertEqual(product["thumb"], f"products/{product['id']}_thumb.png")
+                self.assertTrue(Path(tmp, product["image"]).exists())
+                self.assertTrue(Path(tmp, product["thumb"]).exists())
+            finally:
+                app_module.UPLOAD_FOLDER = old_upload
+                app_module.PRODUCT_IMG_FOLDER = old_products
 
     def test_admin_product_add_reports_persistence_failure(self):
         class FailingStore:
